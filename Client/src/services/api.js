@@ -59,6 +59,12 @@ export const studentAPI = {
   getById: (id) => apiClient.get(`/students/${id}`),
   update: (id, data) => apiClient.put(`/students/${id}`, data),
   delete: (id) => apiClient.delete(`/students/${id}`),
+  importExcel: (formData) => apiClient.post('/students/import-excel', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  downloadImportTemplate: () => apiClient.get('/students/import-template', {
+    responseType: 'blob',
+  }),
 };
 
 export const subjectAPI = {

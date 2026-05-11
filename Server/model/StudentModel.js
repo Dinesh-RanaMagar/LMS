@@ -35,6 +35,11 @@ const studentSchema = new mongoose.Schema({
         sparse: true
     },
     dob: Date,
+    gender: {
+        type: String,
+        enum: ["Male", "Female", "Other", ""],
+        trim: true
+    },
     fatherName: {
         type: String,
         trim: true
@@ -48,6 +53,10 @@ const studentSchema = new mongoose.Schema({
         trim: true
     },
     mobileNumber: {
+        type: String,
+        trim: true
+    },
+    phone: {
         type: String,
         trim: true
     },
@@ -69,13 +78,18 @@ const studentSchema = new mongoose.Schema({
         trim: true
     },
     promotionDate: Date,
+    status: {
+        type: String,
+        enum: ["active", "promoted", "left"],
+        default: "active"
+    },
     createdAt: {
         type: Date,
         default: Date.now
     }
 }, { timestamps: true });
 
-// Create compound unique index for className and rollNo within academic year
-studentSchema.index({ className: 1, rollNo: 1, academicYear: 1 }, { unique: true });
+// Create compound unique index for className, section, and rollNo within academic year
+studentSchema.index({ academicYear: 1, className: 1, section: 1, rollNo: 1 }, { unique: true });
 
 export default mongoose.model("Student", studentSchema);
