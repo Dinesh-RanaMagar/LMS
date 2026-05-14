@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { academicYearAPI, classAPI, studentAPI } from '../services/api';
 import Layout from '../components/Layout';
-import { Edit2, Trash2, Plus, Search, Users, X } from 'lucide-react';
+import { Edit2, Trash2, Plus, Search, Users, X, Upload } from 'lucide-react';
 
 const Students = () => {
   const navigate = useNavigate();
@@ -85,13 +85,22 @@ const Students = () => {
             <h1 className="text-2xl font-bold text-gray-900">Students</h1>
             <p className="text-gray-400 text-sm mt-1">{students.length} total students enrolled in {selectedAcademicYear || activeAcademicYear}</p>
           </div>
-          <button
-            onClick={() => navigate('/students/add')}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition font-medium text-sm shadow-sm"
-          >
-            <Plus size={18} />
-            Add Student
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => navigate('/students/import')}
+              className="flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition font-medium text-sm shadow-sm"
+            >
+              <Upload size={18} />
+              Import Excel
+            </button>
+            <button
+              onClick={() => navigate('/students/add')}
+              className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition font-medium text-sm shadow-sm"
+            >
+              <Plus size={18} />
+              Add Student
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -259,3 +268,4 @@ const Students = () => {
 };
 
 export default Students;
+

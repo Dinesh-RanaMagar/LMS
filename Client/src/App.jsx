@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import Subjects from './pages/Subjects';
 import Students from './pages/Students';
 import AddEditStudent from './pages/AddEditStudent';
+import BulkImportStudents from './pages/BulkImportStudents';
 import Classes from './pages/Classes';
 
 // Exam pages
@@ -60,6 +61,7 @@ function App() {
           <Route path="/subjects"           element={<P><Subjects /></P>} />
           <Route path="/students"           element={<P><Students /></P>} />
           <Route path="/students/add"       element={<P><AddEditStudent /></P>} />
+          <Route path="/students/import"    element={<P><BulkImportStudents /></P>} />
           <Route path="/students/edit/:id"  element={<P><AddEditStudent /></P>} />
 
           {/* Exam routes */}
