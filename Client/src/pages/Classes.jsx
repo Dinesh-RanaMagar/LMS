@@ -682,39 +682,71 @@ function ClassesSubjects() {
                 </p>
               ) : (
                 <>
-                  <div className="grid gap-3 sm:grid-cols-2 items-end">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">
-                        Copy subjects from another class
-                      </label>
-                      <select
-                        value={copySourceClass}
-                        onChange={(e) => setCopySourceClass(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50"
-                      >
-                        <option value="">Select source class</option>
-                        {assignments
-                          .filter((a) => a.className !== assignForm.className && a.subjects?.length)
-                          .map((assignment) => (
-                            <option key={assignment.className} value={assignment.className}>
-                              {assignment.className}
-                            </option>
-                          ))}
-                      </select>
+                  {/* Copy from another class section */}
+                  {assignments.filter((a) => a.className !== assignForm.className && a.subjects?.length > 0).length > 0 && (
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
+                      <p className="text-sm font-semibold text-indigo-700 mb-3">Copy subjects from another class</p>
+                      <div className="grid gap-3 sm:grid-cols-2 items-end">
+                        <select
+                          value={copySourceClass}
+                          onChange={(e) => setCopySourceClass(e.target.value)}
+                          className="w-full px-4 py-3 border border-indigo-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+                        >
+                          <option value="">Select source class</option>
+                          {assignments
+                            .filter((a) => a.className !== assignForm.className && a.subjects?.length > 0)
+                            .map((assignment) => (
+                              <option key={assignment.className} value={assignment.className}>
+                                {assignment.className} ({assignment.subjects.length} subjects)
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          type="button"
+                          disabled={!copySourceClass}
+                          onClick={() => copyAssignedSubjectsFrom(copySourceClass)}
+                          className="w-full px-4 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
+                        >
+                          Copy subjects
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      disabled={!copySourceClass}
-                      onClick={() => copyAssignedSubjectsFrom(copySourceClass)}
-                      className="w-full sm:w-auto px-4 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
-                    >
-                      Copy subjects
-                    </button>
-                  </div>
+                  )}
                   <div className="border-t border-gray-200 pt-3">
-                    <p className="text-sm text-gray-500">
-                      Subjects selected below will be assigned to {assignForm.className}.
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-500">
+                        Subjects selected below will be assigned to {assignForm.className}.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAssignForm((prev) => ({
+                              ...prev,
+                              subjects: subjects.map((s) => ({
+                                subject: s._id,
+                                subjectName: s.subjectName,
+                                fullMarks: 100,
+                                passMarks: 40,
+                                theoryFullMarks: s.hasPractical ? 75 : 100,
+                                practicalFullMarks: s.hasPractical ? 25 : 0,
+                                hasPractical: s.hasPractical || false,
+                              })),
+                            }))
+                          }
+                          className="text-xs px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 font-medium"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAssignForm((prev) => ({ ...prev, subjects: [] }))}
+                          className="text-xs px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 font-medium"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-3">
                     {subjects.map((subject) => {

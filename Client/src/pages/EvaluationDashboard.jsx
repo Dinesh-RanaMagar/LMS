@@ -345,7 +345,7 @@ const EvaluationDashboard = () => {
                   className="flex items-center space-x-2 bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>
-                    {selectedSection ? `Section ${selectedSection}` : 'Select Section'}
+                    {selectedSection ? `Section ${selectedSection}` : 'All Sections'}
                   </span>
                   <ChevronDown className="h-4 w-4 text-gray-400" />
                 </button>
@@ -471,26 +471,28 @@ const EvaluationDashboard = () => {
                 >
                   <Calendar className="h-4 w-4" />
                   <span>
-                    {selectedExamIds.length > 0 
-                      ? `${selectedExamIds.length} Terms Selected` 
-                      : 'Select Terms'
+                    {selectedExamIds.length === 0
+                      ? 'Select Terms'
+                      : selectedExams.map((e) => e.examName).join(', ')
                     }
                   </span>
                   <ChevronDown className="h-4 w-4 text-gray-400" />
                 </button>
 
                 {showTermDropdown && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+                  <div className="absolute right-0 mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-50" onClick={(e) => e.stopPropagation()}>
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="font-medium text-gray-900">Select Terms</h3>
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (selectedExamIds.length === exams.length) {
                               setSelectedExamIds([]);
                             } else {
                               setSelectedExamIds(exams.map(exam => exam._id));
                             }
+                            setDashboard(null);
                           }}
                           className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
                         >
@@ -499,7 +501,7 @@ const EvaluationDashboard = () => {
                       </div>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {exams.map((exam) => (
-                          <label key={exam._id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <label key={exam._id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
                               checked={selectedExamIds.includes(exam._id)}

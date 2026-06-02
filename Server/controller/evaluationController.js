@@ -111,10 +111,15 @@ export const compareEvaluation = async (req, res) => {
       return { examName: String(examId).trim() };
     });
 
-    const exams = await Exam.find({ $or: examCriteria }).sort({ examName: 1 });
-    if (!exams.length) {
+    const examsRaw = await Exam.find({ $or: examCriteria });
+    if (!examsRaw.length) {
       return res.status(404).json({ success: false, message: 'No matching exams found' });
     }
+
+    // Preserve the selection order sent by the client
+    const exams = examIds
+      .map((id) => examsRaw.find((e) => String(e._id) === String(id) || e.examName === String(id).trim()))
+      .filter(Boolean);
 
     const marksheets = await Marksheet.find({ student: student._id, exam: { $in: exams.map((exam) => exam._id) } })
       .populate('exam')
