@@ -2,26 +2,56 @@ import AcademicYear from "../model/AcademicYearModel.js";
 
 export const createAcademicYear = async (req, res) => {
   try {
-    const { yearName, startDate, endDate, isActive } = req.body;
+    const {
+      yearName,
+      dateFormat = 'AD',
+      startDate,
+      endDate,
+      nepaliStartDate,
+      nepaliEndDate,
+      isActive,
+    } = req.body;
 
-    if (!yearName || !startDate || !endDate) {
+    const format = dateFormat === 'BS' ? 'BS' : 'AD';
+    const trimmedYear = yearName?.trim();
+
+    if (!trimmedYear) {
       return res.status(400).json({
         success: false,
-        message: "Year name, start date, and end date are required",
+        message: 'Year name is required',
       });
     }
 
-    const exists = await AcademicYear.findOne({ yearName: yearName.trim() });
+    if (format === 'AD') {
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Start and end dates are required in AD format',
+        });
+      }
+    } else {
+      if (!nepaliStartDate || !nepaliEndDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Start and end dates are required in BS format',
+        });
+      }
+    }
+
+    const exists = await AcademicYear.findOne({ yearName: trimmedYear });
     if (exists) {
       return res
         .status(400)
-        .json({ success: false, message: "Academic year already exists" });
+        .json({ success: false, message: 'Academic year already exists' });
     }
 
     const academicYear = await AcademicYear.create({
-      yearName: yearName.trim(),
-      startDate,
-      endDate,
+      yearName: trimmedYear,
+      dateFormat: format,
+      startDate: format === 'AD' ? startDate : undefined,
+      endDate: format === 'AD' ? endDate : undefined,
+      nepaliStartDate: format === 'BS' ? nepaliStartDate.trim() : '',
+      nepaliEndDate: format === 'BS' ? nepaliEndDate.trim() : '',
       isActive: Boolean(isActive),
     });
 
@@ -59,7 +89,15 @@ export const updateAcademicYear = async (req, res) => {
       return res.status(404).json({ success: false, message: "Academic year not found" });
     }
 
-    const { yearName, startDate, endDate, isActive } = req.body;
+    const {
+      yearName,
+      dateFormat,
+      startDate,
+      endDate,
+      nepaliStartDate,
+      nepaliEndDate,
+      isActive,
+    } = req.body;
 
     if (yearName && yearName.trim() !== academicYear.yearName) {
       const duplicate = await AcademicYear.findOne({
@@ -74,8 +112,37 @@ export const updateAcademicYear = async (req, res) => {
       academicYear.yearName = yearName.trim();
     }
 
-    if (startDate) academicYear.startDate = startDate;
-    if (endDate) academicYear.endDate = endDate;
+    const format = dateFormat === 'BS' ? 'BS' : dateFormat === 'AD' ? 'AD' : academicYear.dateFormat;
+    academicYear.dateFormat = format;
+
+    if (format === 'AD') {
+      if (dateFormat === 'AD' && (!startDate || !endDate)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Start and end dates are required in AD format',
+        });
+      }
+      if (startDate) academicYear.startDate = startDate;
+      if (endDate) academicYear.endDate = endDate;
+      if (dateFormat === 'AD') {
+        academicYear.nepaliStartDate = '';
+        academicYear.nepaliEndDate = '';
+      }
+    } else {
+      if (dateFormat === 'BS' && (!nepaliStartDate || !nepaliEndDate)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Start and end dates are required in BS format',
+        });
+      }
+      if (nepaliStartDate) academicYear.nepaliStartDate = nepaliStartDate.trim();
+      if (nepaliEndDate) academicYear.nepaliEndDate = nepaliEndDate.trim();
+      if (dateFormat === 'BS') {
+        academicYear.startDate = undefined;
+        academicYear.endDate = undefined;
+      }
+    }
+
     if (isActive !== undefined) academicYear.isActive = isActive;
 
     await academicYear.save();

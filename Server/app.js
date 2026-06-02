@@ -16,6 +16,7 @@ import noticeRoute from './route/noticeRoute.js';
 import attendanceRoute from './route/attendanceRoute.js';
 import schoolSettingsRoute from './route/schoolSettingsRoute.js';
 import uploadRoute from './route/uploadRoute.js';
+import evaluationRoute from './route/evaluationRoute.js';
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -43,6 +44,7 @@ app.use('/api/teachers', teacherRoute);
 app.use('/api/notices', noticeRoute);
 app.use('/api/attendance', attendanceRoute);
 app.use('/api/settings', schoolSettingsRoute);
+app.use('/api/evaluation', evaluationRoute);
 app.use('/api/uploads', uploadRoute);
 
 // Express v5 compatible error handler

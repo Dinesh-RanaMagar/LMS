@@ -20,6 +20,7 @@ function ClassesSubjects() {
   const [assignments, setAssignments] = useState([]);
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const [showClassModal, setShowClassModal] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -44,6 +45,7 @@ function ClassesSubjects() {
     className: "",
     subjects: [],
   });
+  const [copySourceClass, setCopySourceClass] = useState("");
   const [selectedClassFilter, setSelectedClassFilter] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
 
@@ -52,18 +54,28 @@ function ClassesSubjects() {
   }, []);
 
   const fetchData = async () => {
+    setError('');
+
     try {
+      if (!localStorage.getItem('token')) {
+        setError('Authentication token is missing. Please log in again.');
+        return;
+      }
+
       const [classRes, subjectRes, assignRes] = await Promise.all([
         classAPI.getAll(),
         subjectAPI.getAll(),
         classSubjectAPI.getAll(),
       ]);
 
-      setClasses(classRes.data.classes || classRes.data || []);
-      setSubjects(subjectRes.data.subjects || subjectRes.data || []);
-      setAssignments(assignRes.data.assignments || assignRes.data || []);
+      setClasses(classRes.data?.classes ?? []);
+      setSubjects(subjectRes.data?.subjects ?? []);
+      setAssignments(assignRes.data?.assignments ?? []);
     } catch (error) {
-      console.error("Fetch error:", error);
+      console.error('Fetch error:', error);
+      setError(
+        error.response?.data?.message || error.message || 'Failed to load class data.'
+      );
     } finally {
       setLoading(false);
     }
@@ -103,7 +115,7 @@ function ClassesSubjects() {
           hasPractical: s.hasPractical || false,
         })) || [],
     });
-
+    setCopySourceClass("");
     setShowAssignModal(true);
   };
 
@@ -197,6 +209,24 @@ function ClassesSubjects() {
     setShowSubjectModal(true);
   };
 
+  const copyAssignedSubjectsFrom = (sourceClassName) => {
+    const source = assignments.find((a) => a.className === sourceClassName);
+    if (!source?.subjects?.length) return;
+
+    setAssignForm((prev) => ({
+      ...prev,
+      subjects: source.subjects.map((s) => ({
+        subject: s.subject?._id || s.subject,
+        subjectName: s.subjectName || s.subject?.subjectName || "",
+        fullMarks: s.fullMarks || 100,
+        passMarks: s.passMarks || 40,
+        theoryFullMarks: s.theoryFullMarks || 100,
+        practicalFullMarks: s.practicalFullMarks || 0,
+        hasPractical: s.hasPractical || false,
+      })),
+    }));
+  };
+
   const deleteClass = async (id) => {
     if (!window.confirm("Delete this class?")) return;
 
@@ -244,20 +274,6 @@ function ClassesSubjects() {
         ],
       });
     }
-  };
-
-  const updateAssignSubject = (subjectId, field, value) => {
-    setAssignForm({
-      ...assignForm,
-      subjects: assignForm.subjects.map((s) =>
-        s.subject === subjectId
-          ? {
-            ...s,
-            [field]: Number(value),
-          }
-          : s
-      ),
-    });
   };
 
   const getAssignedSubjects = (className) => {
@@ -329,6 +345,12 @@ function ClassesSubjects() {
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-5">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-3xl p-4">
+                <p className="font-semibold">Unable to load classes</p>
+                <p className="text-sm mt-1">{error}</p>
+              </div>
+            )}
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 mb-4">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <select
@@ -460,16 +482,14 @@ function ClassesSubjects() {
                                       item.subject?.subjectName}
                                   </h4>
                                   <p className="text-xs text-gray-400">
-                                    Full: {item.fullMarks} | Pass:{" "}
-                                    {item.passMarks}
+                                    Assigned to this class
                                   </p>
                                 </div>
                               </div>
 
                               {item.hasPractical && (
                                 <p className="text-xs mt-2 text-purple-600">
-                                  Theory {item.theoryFullMarks} + Practical{" "}
-                                  {item.practicalFullMarks}
+                                  Practical subject
                                 </p>
                               )}
                             </div>
@@ -661,94 +681,76 @@ function ClassesSubjects() {
                   Please create subject master first.
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {subjects.map((subject) => {
-                    const selected = assignForm.subjects.find(
-                      (s) => s.subject === subject._id
-                    );
-
-                    return (
-                      <div
-                        key={subject._id}
-                        className={`border rounded-xl p-4 ${selected
-                            ? "border-indigo-300 bg-indigo-50"
-                            : "border-gray-200"
-                          }`}
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2 items-end">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">
+                        Copy subjects from another class
+                      </label>
+                      <select
+                        value={copySourceClass}
+                        onChange={(e) => setCopySourceClass(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50"
                       >
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={!!selected}
-                            onChange={() => toggleAssignSubject(subject)}
-                          />
-                          <span className="font-semibold text-gray-800">
-                            {subject.subjectName}
-                          </span>
-                        </label>
+                        <option value="">Select source class</option>
+                        {assignments
+                          .filter((a) => a.className !== assignForm.className && a.subjects?.length)
+                          .map((assignment) => (
+                            <option key={assignment.className} value={assignment.className}>
+                              {assignment.className}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!copySourceClass}
+                      onClick={() => copyAssignedSubjectsFrom(copySourceClass)}
+                      className="w-full sm:w-auto px-4 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
+                    >
+                      Copy subjects
+                    </button>
+                  </div>
+                  <div className="border-t border-gray-200 pt-3">
+                    <p className="text-sm text-gray-500">
+                      Subjects selected below will be assigned to {assignForm.className}.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {subjects.map((subject) => {
+                      const selected = assignForm.subjects.find(
+                        (s) => s.subject === subject._id
+                      );
 
-                        {selected && (
-                          <div className="grid sm:grid-cols-4 gap-3 mt-4">
+                      return (
+                        <div
+                          key={subject._id}
+                          className={`border rounded-xl p-4 ${selected
+                              ? "border-indigo-300 bg-indigo-50"
+                              : "border-gray-200"
+                            }`}
+                        >
+                          <label className="flex items-center gap-3 cursor-pointer">
                             <input
-                              type="number"
-                              className={inputClass}
-                              value={selected.fullMarks}
-                              onChange={(e) =>
-                                updateAssignSubject(
-                                  subject._id,
-                                  "fullMarks",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="Full Marks"
+                              type="checkbox"
+                              checked={!!selected}
+                              onChange={() => toggleAssignSubject(subject)}
                             />
+                            <span className="font-semibold text-gray-800">
+                              {subject.subjectName}
+                            </span>
+                          </label>
 
-                            <input
-                              type="number"
-                              className={inputClass}
-                              value={selected.passMarks}
-                              onChange={(e) =>
-                                updateAssignSubject(
-                                  subject._id,
-                                  "passMarks",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="Pass Marks"
-                            />
-
-                            <input
-                              type="number"
-                              className={inputClass}
-                              value={selected.theoryFullMarks}
-                              onChange={(e) =>
-                                updateAssignSubject(
-                                  subject._id,
-                                  "theoryFullMarks",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="Theory"
-                            />
-
-                            <input
-                              type="number"
-                              className={inputClass}
-                              value={selected.practicalFullMarks}
-                              onChange={(e) =>
-                                updateAssignSubject(
-                                  subject._id,
-                                  "practicalFullMarks",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="Practical"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                          {selected && (
+                            <p className="text-xs text-indigo-600 mt-3 font-medium">
+                              Subject selected for this class
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
 
               <ModalButtons onClose={() => setShowAssignModal(false)} />

@@ -29,6 +29,11 @@ const Marksheets = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterClass, setFilterClass] = useState('');
   const [filterSection, setFilterSection] = useState('');
+  const [filterExam, setFilterExam] = useState('');
+  const [filterExamType, setFilterExamType] = useState('');
+  const [filterExamTerm, setFilterExamTerm] = useState('');
+  const [minGPA, setMinGPA] = useState('');
+  const [maxGPA, setMaxGPA] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [selectedMarksheet, setSelectedMarksheet] = useState(null);
   const [settings, setSettings] = useState(null);
@@ -38,7 +43,7 @@ const Marksheets = () => {
   useEffect(() => {
     settingsAPI.get().then((res) => setSettings(res.data.settings)).catch(() => {});
   }, []);
-  useEffect(() => { filterMarksheets(); }, [marksheets, searchTerm, filterClass, filterSection]);
+  useEffect(() => { filterMarksheets(); }, [marksheets, searchTerm, filterClass, filterSection, filterExam, filterExamType, filterExamTerm, minGPA, maxGPA]);
 
   const fetchMarksheets = async () => {
     try {
@@ -59,6 +64,13 @@ const Marksheets = () => {
       .map((m) => m.student?.section)
       .filter(Boolean)
   )].sort();
+  const examOptions = [...new Map(marksheets
+    .map((m) => ({ id: m.exam?._id, name: m.exam?.examName }))
+    .filter((e) => e.id && e.name)
+    .map((e) => [e.id, e])).values()].map(v => v).sort((a,b) => (a.name||'').localeCompare(b.name||''));
+
+  const examTypeOptions = [...new Set(marksheets.map((m) => m.exam?.examType).filter(Boolean))].sort();
+  const examTermOptions = [...new Set(marksheets.map((m) => m.exam?.year).filter(Boolean))].sort();
 
   const filterMarksheets = () => {
     let filtered = marksheets;
@@ -76,6 +88,21 @@ const Marksheets = () => {
     if (filterSection) {
       filtered = filtered.filter((m) => m.student?.section === filterSection);
     }
+    if (filterExamType) {
+      filtered = filtered.filter((m) => (m.exam?.examType || '').toLowerCase() === (filterExamType || '').toLowerCase());
+    }
+    if (filterExamTerm) {
+      filtered = filtered.filter((m) => String(m.exam?.year) === String(filterExamTerm));
+    }
+    if (filterExam) {
+      filtered = filtered.filter((m) => String(m.exam?._id) === String(filterExam));
+    }
+
+    // GPA filtering (allow decimal values)
+    const min = parseFloat(minGPA);
+    const max = parseFloat(maxGPA);
+    if (!Number.isNaN(min)) filtered = filtered.filter((m) => Number(m.gpa || 0) >= min);
+    if (!Number.isNaN(max)) filtered = filtered.filter((m) => Number(m.gpa || 0) <= max);
     setFilteredMarksheets(filtered);
   };
 
@@ -295,7 +322,7 @@ const Marksheets = () => {
 
         {/* Search */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div className="relative">
               <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -325,6 +352,16 @@ const Marksheets = () => {
               <option value="">Filter by section</option>
               {sectionOptions.map((section) => (
                 <option key={section} value={section}>Section {section}</option>
+              ))}
+            </select>
+            <select
+              value={filterExam}
+              onChange={(e) => setFilterExam(e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50 focus:bg-white transition"
+            >
+              <option value="">Filter by exam</option>
+              {examOptions.map((ex) => (
+                <option key={ex.id} value={ex.id}>{ex.name}</option>
               ))}
             </select>
             <select

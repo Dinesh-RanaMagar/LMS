@@ -65,15 +65,33 @@ export const createMarksheet = async (req, res) => {
 export const getMarksheets = async (req, res) => {
   try {
     const { className, examId, exam, academicYear } = req.query;
-
+    const includeUnpublished = req.query.includeUnpublished === 'true';
     let filter = {};
 
+    // If specific exam provided, ensure we respect it
     if (examId || exam) filter.exam = examId || exam;
     if (academicYear) filter.academicYear = academicYear;
 
+    // If an exam filter is present, verify that exam's results are published (unless explicitly allowed)
+    if (filter.exam) {
+      const targetExam = await Exam.findById(filter.exam).select('isResultPublished');
+      if (!includeUnpublished && (!targetExam || !targetExam.isResultPublished)) {
+        return res.json({ success: true, count: 0, marksheets: [] });
+      }
+    } else {
+      // When no specific exam is requested, only include marksheets for published exams
+      const publishedExams = await Exam.find({ isResultPublished: true }).select('_id');
+      const pubIds = publishedExams.map((e) => e._id);
+      // If no published exams exist, return empty (unless including unpublished)
+      if (!includeUnpublished) {
+        if (pubIds.length === 0) return res.json({ success: true, count: 0, marksheets: [] });
+        filter.exam = { $in: pubIds };
+      }
+    }
+
     let marksheets = await Marksheet.find(filter)
       .populate("student", "name className rollNo symbolNo")
-      .populate("exam", "examName className year academicYear classExamConfigs")
+      .populate("exam", "examName className year academicYear classExamConfigs isResultPublished")
       .sort({ createdAt: -1 });
 
     if (className) {
@@ -82,11 +100,12 @@ export const getMarksheets = async (req, res) => {
       );
     }
 
-    res.json({
-      success: true,
-      count: marksheets.length,
-      marksheets
-    });
+    // Ensure final sanitization: only return marksheets whose populated exam is published (unless allowed)
+    if (!includeUnpublished) {
+      marksheets = marksheets.filter((m) => m.exam && m.exam.isResultPublished);
+    }
+
+    res.json({ success: true, count: marksheets.length, marksheets });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -95,11 +114,15 @@ export const getMarksheets = async (req, res) => {
 // GET MARKSHEET BY ID
 export const getMarksheetById = async (req, res) => {
   try {
+    const includeUnpublished = req.query.includeUnpublished === 'true';
     const marksheet = await Marksheet.findById(req.params.id)
       .populate("student")
       .populate("exam");
 
-    if (!marksheet) {
+    if (!marksheet) return res.status(404).json({ success: false, message: "Marksheet not found" });
+
+    // Do not expose marksheet if exam results are not published
+    if (!includeUnpublished && !marksheet.exam?.isResultPublished) {
       return res.status(404).json({ success: false, message: "Marksheet not found" });
     }
 
@@ -112,16 +135,16 @@ export const getMarksheetById = async (req, res) => {
 // GET MARKSHEETS BY STUDENT
 export const getMarksheetsByStudent = async (req, res) => {
   try {
-    const marksheets = await Marksheet.find({ student: req.params.studentId })
+    const includeUnpublished = req.query.includeUnpublished === 'true';
+    let marksheets = await Marksheet.find({ student: req.params.studentId })
       .populate("student")
       .populate("exam")
       .sort({ createdAt: -1 });
 
-    res.json({
-      success: true,
-      count: marksheets.length,
-      marksheets
-    });
+    // Filter out marksheets whose exams are not published
+    if (!includeUnpublished) marksheets = marksheets.filter((m) => m.exam && m.exam.isResultPublished);
+
+    res.json({ success: true, count: marksheets.length, marksheets });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -130,16 +153,19 @@ export const getMarksheetsByStudent = async (req, res) => {
 // GET MARKSHEETS BY EXAM
 export const getMarksheetsByExam = async (req, res) => {
   try {
+    const includeUnpublished = req.query.includeUnpublished === 'true';
+    // Ensure the exam's results are published
+    const exam = await Exam.findById(req.params.examId).select('isResultPublished');
+    if (!includeUnpublished && (!exam || !exam.isResultPublished)) {
+      return res.json({ success: true, count: 0, marksheets: [] });
+    }
+
     const marksheets = await Marksheet.find({ exam: req.params.examId })
       .populate("student", "name className rollNo symbolNo")
       .populate("exam")
       .sort({ "student.rollNo": 1 });
 
-    res.json({
-      success: true,
-      count: marksheets.length,
-      marksheets
-    });
+    res.json({ success: true, count: marksheets.length, marksheets });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -148,6 +174,7 @@ export const getMarksheetsByExam = async (req, res) => {
 // GET MARKSHEET BY STUDENT + EXAM
 export const getMarksheetByStudentExam = async (req, res) => {
   try {
+    const includeUnpublished = req.query.includeUnpublished === 'true';
     const marksheet = await Marksheet.findOne({
       student: req.params.studentId,
       exam: req.params.examId
@@ -156,10 +183,12 @@ export const getMarksheetByStudentExam = async (req, res) => {
       .populate("exam");
 
     if (!marksheet) {
-      return res.status(404).json({
-        success: false,
-        message: "Marksheet not found for this student and exam"
-      });
+      return res.status(404).json({ success: false, message: "Marksheet not found for this student and exam" });
+    }
+
+    // Hide marksheet if the exam's results are not published (unless allowed)
+    if (!includeUnpublished && !marksheet.exam?.isResultPublished) {
+      return res.status(404).json({ success: false, message: "Marksheet not found for this student and exam" });
     }
 
     res.json({ success: true, marksheet });

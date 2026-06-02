@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { settingsAPI } from '../services/api';
+import { useSettings } from '../context/SettingsContext';
 import {
   LayoutDashboard,
   Calendar,
@@ -29,6 +29,7 @@ const navItems = [
   { path: '/classes', label: 'Classes', icon: Building2 },
   { path: '/subjects', label: 'Subjects', icon: BookMarked },
   { path: '/exams', label: 'Exams', icon: BookOpen },
+  { path: '/evaluation', label: 'Evaluation', icon: TrendingUp },
   { path: '/marks-entry', label: 'Marks Entry', icon: ClipboardList },
   { path: '/marksheets', label: 'Marksheets', icon: FileText },
   { path: '/promotion', label: 'Promotion', icon: TrendingUp },
@@ -48,13 +49,9 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { admin, logout } = useAuth();
+  const { settings } = useSettings();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [settings, setSettings] = useState(null);
-
-  React.useEffect(() => {
-    settingsAPI.get().then((res) => setSettings(res.data.settings)).catch(() => {});
-  }, []);
 
   const handleLogout = async () => {
     await logout();

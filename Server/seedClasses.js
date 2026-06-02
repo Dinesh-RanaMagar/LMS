@@ -5,21 +5,18 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const classes = [
-  { className: "Nursery", order: 1 },
-  { className: "LKG", order: 2 },
-  { className: "UKG", order: 3 },
-  { className: "Class 1", order: 4 },
-  { className: "Class 2", order: 5 },
-  { className: "Class 3", order: 6 },
-  { className: "Class 4", order: 7 },
-  { className: "Class 5", order: 8 },
-  { className: "Class 6", order: 9 },
-  { className: "Class 7", order: 10 },
-  { className: "Class 8", order: 11 },
-  { className: "Class 9", order: 12 },
-  { className: "Class 10", order: 13 },
-  { className: "Class 11", order: 14 },
-  { className: "Class 12", order: 15 },
+  { className: "Nursery", order: 1, sections: [] },
+  { className: "KG", order: 2, sections: [] },
+  { className: "Class 1", order: 3, sections: [] },
+  { className: "Class 2", order: 4, sections: [] },
+  { className: "Class 3", order: 5, sections: [] },
+  { className: "Class 4", order: 6, sections: [] },
+  { className: "Class 5", order: 7, sections: [] },
+  { className: "Class 6", order: 8, sections: ["A", "B"] },
+  { className: "Class 7", order: 9, sections: ["A", "B"] },
+  { className: "Class 8", order: 10, sections: ["A", "B"] },
+  { className: "Class 9", order: 11, sections: ["A", "B"] },
+  { className: "Class 10", order: 12, sections: ["A", "B"] },
 ];
 
 async function seedClasses() {
@@ -37,7 +34,6 @@ async function seedClasses() {
       if (!existingClass) {
         await ClassModel.create({
           ...classData,
-          sections: ["A", "B", "C"],
           description: `${classData.className} class`,
         });
         console.log(`Created class: ${classData.className}`);

@@ -17,35 +17,39 @@ import { studentAPI, examAPI, marksheetAPI, academicYearAPI } from '../services/
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 
-const StatCard = ({ label, value, icon: Icon, color, bg, loading }) => (
-  <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-5 hover:shadow-md transition-shadow`}>
-    <div className={`w-14 h-14 rounded-2xl ${bg} flex items-center justify-center flex-shrink-0`}>
-      <Icon size={26} className={color} />
+const StatCard = ({ label, value, icon: Icon, gradient, loading }) => (
+  <div className={`relative overflow-hidden rounded-3xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${gradient}`}>
+    <div className="absolute top-0 right-0 w-24 h-24 opacity-20">
+      <Icon size={96} className="absolute -top-6 -right-6" />
     </div>
-    <div>
-      <p className="text-sm text-gray-500 font-medium">{label}</p>
+    <div className="relative z-10">
+      <p className="text-white/80 text-sm font-medium uppercase tracking-wide">{label}</p>
       {loading ? (
-        <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-1" />
+        <div className="h-10 w-20 bg-white/20 animate-pulse rounded-lg mt-2" />
       ) : (
-        <p className="text-3xl font-bold text-gray-800 mt-0.5">{value}</p>
+        <p className="text-4xl font-black mt-2">{value}</p>
       )}
     </div>
+    <div className="absolute bottom-0 left-0 w-full h-1 bg-white/30"></div>
   </div>
 );
 
-const QuickAction = ({ to, icon: Icon, label, description, color, bg }) => (
+const QuickAction = ({ to, icon: Icon, label, description, gradient }) => (
   <Link
     to={to}
-    className="group bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 hover:shadow-md hover:border-indigo-200 transition-all"
+    className="group relative overflow-hidden bg-white rounded-3xl border border-gray-100 p-6 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
   >
-    <div className={`w-11 h-11 rounded-xl ${bg} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
-      <Icon size={22} className={color} />
+    <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 ${gradient}`}></div>
+    <div className="relative z-10">
+      <div className={`w-16 h-16 rounded-2xl ${gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+        <Icon size={28} className="text-white" />
+      </div>
+      <h3 className="font-bold text-gray-900 text-lg mb-2">{label}</h3>
+      <p className="text-gray-500 text-sm leading-relaxed">{description}</p>
     </div>
-    <div className="flex-1 min-w-0">
-      <p className="font-semibold text-gray-800 text-sm">{label}</p>
-      <p className="text-xs text-gray-400 mt-0.5 truncate">{description}</p>
+    <div className="absolute bottom-0 right-0 w-20 h-20 opacity-5">
+      <Icon size={80} className="absolute -bottom-4 -right-4 text-gray-400" />
     </div>
-    <ArrowRight size={16} className="text-gray-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
   </Link>
 );
 
@@ -57,6 +61,11 @@ const Dashboard = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Only fetch data if user is authenticated
+    if (!admin) {
+      return;
+    }
+
     const fetchData = async () => {
       try {
         const [studentsRes, examsRes, marksheetsRes, academicYearsRes] = await Promise.allSettled([
@@ -92,16 +101,19 @@ const Dashboard = () => {
 
         setRecentMarksheets(marksheets.slice(0, 5));
 
-        if (
+        // Check for specific errors
+        let errorMessage = '';
+        if (studentsRes.status === 'rejected' && studentsRes.reason?.response?.data?.message?.includes('active academic year')) {
+          errorMessage = 'No active academic year set. Please create and activate an academic year in Settings.';
+        } else if (
           studentsRes.status === 'rejected' ||
           examsRes.status === 'rejected' ||
           marksheetsRes.status === 'rejected' ||
           academicYearsRes.status === 'rejected'
         ) {
-          setError('Some dashboard data could not be loaded');
-        } else {
-          setError('');
+          errorMessage = 'Some dashboard data could not be loaded. Please check your settings.';
         }
+        setError(errorMessage);
       } catch (err) {
         setError('Failed to load dashboard data');
         console.error(err);
@@ -111,7 +123,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, []);
+  }, [admin]);
 
   const gradeColor = (grade) => {
     const map = { 'A+': 'text-emerald-600 bg-emerald-50', A: 'text-green-600 bg-green-50', B: 'text-blue-600 bg-blue-50', C: 'text-yellow-600 bg-yellow-50', D: 'text-orange-600 bg-orange-50', F: 'text-red-600 bg-red-50' };
@@ -141,24 +153,90 @@ const Dashboard = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          <StatCard label="Total Students" value={stats.students} icon={Users} color="text-indigo-600" bg="bg-indigo-50" loading={loading} />
-          <StatCard label="Total Exams" value={stats.exams} icon={BookOpen} color="text-emerald-600" bg="bg-emerald-50" loading={loading} />
-          <StatCard label="Marksheets" value={stats.marksheets} icon={FileText} color="text-violet-600" bg="bg-violet-50" loading={loading} />
-          <StatCard label="Academic Years" value={stats.academicYears} icon={Calendar} color="text-orange-600" bg="bg-orange-50" loading={loading} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard 
+            label="Total Students" 
+            value={stats.students} 
+            icon={Users} 
+            gradient="bg-gradient-to-br from-purple-500 to-pink-500" 
+            loading={loading} 
+          />
+          <StatCard 
+            label="Total Exams" 
+            value={stats.exams} 
+            icon={BookOpen} 
+            gradient="bg-gradient-to-br from-blue-500 to-cyan-500" 
+            loading={loading} 
+          />
+          <StatCard 
+            label="Marksheets" 
+            value={stats.marksheets} 
+            icon={FileText} 
+            gradient="bg-gradient-to-br from-emerald-500 to-teal-500" 
+            loading={loading} 
+          />
+          <StatCard 
+            label="Academic Years" 
+            value={stats.academicYears} 
+            icon={Calendar} 
+            gradient="bg-gradient-to-br from-orange-500 to-red-500" 
+            loading={loading} 
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
             <h2 className="text-base font-semibold text-gray-700 mb-4">Quick Actions</h2>
-            <div className="space-y-3">
-              <QuickAction to="/academic-years" icon={Calendar} label="Academic Years" description="Manage academic sessions" color="text-orange-600" bg="bg-orange-50" />
-              <QuickAction to="/students/add" icon={PlusCircle} label="Add New Student" description="Register a student" color="text-indigo-600" bg="bg-indigo-50" />
-              <QuickAction to="/students" icon={Users} label="Manage Students" description="View & edit students" color="text-blue-600" bg="bg-blue-50" />
-              <QuickAction to="/exams/add" icon={PlusCircle} label="Create Exam" description="Set up a new exam" color="text-emerald-600" bg="bg-emerald-50" />
-              <QuickAction to="/marks-entry" icon={ClipboardList} label="Enter Marks" description="Record student marks" color="text-orange-600" bg="bg-orange-50" />
-              <QuickAction to="/promotion" icon={TrendingUp} label="Promote Students" description="Promote to next class" color="text-purple-600" bg="bg-purple-50" />
-              <QuickAction to="/settings" icon={Settings} label="School Settings" description="Name, logo, address & signature" color="text-teal-600" bg="bg-teal-50" />
+            <div className="space-y-4">
+              <QuickAction 
+                to="/academic-years" 
+                icon={Calendar} 
+                label="Academic Years" 
+                description="Manage academic sessions" 
+                gradient="bg-gradient-to-r from-indigo-500 to-purple-600" 
+              />
+              <QuickAction 
+                to="/students/add" 
+                icon={PlusCircle} 
+                label="Add New Student" 
+                description="Register a student" 
+                gradient="bg-gradient-to-r from-emerald-500 to-teal-600" 
+              />
+              <QuickAction 
+                to="/students" 
+                icon={Users} 
+                label="Manage Students" 
+                description="View & edit students" 
+                gradient="bg-gradient-to-r from-blue-500 to-cyan-600" 
+              />
+              <QuickAction 
+                to="/exams/add" 
+                icon={PlusCircle} 
+                label="Create Exam" 
+                description="Set up a new exam" 
+                gradient="bg-gradient-to-r from-pink-500 to-rose-600" 
+              />
+              <QuickAction 
+                to="/marks-entry" 
+                icon={ClipboardList} 
+                label="Enter Marks" 
+                description="Record student marks" 
+                gradient="bg-gradient-to-r from-amber-500 to-orange-600" 
+              />
+              <QuickAction 
+                to="/promotion" 
+                icon={TrendingUp} 
+                label="Promote Students" 
+                description="Promote to next class" 
+                gradient="bg-gradient-to-r from-violet-500 to-purple-600" 
+              />
+              <QuickAction 
+                to="/settings" 
+                icon={Settings} 
+                label="School Settings" 
+                description="Name, logo, address & signature" 
+                gradient="bg-gradient-to-r from-slate-500 to-gray-600" 
+              />
             </div>
           </div>
 

@@ -79,28 +79,46 @@ const Students = () => {
   return (
     <Layout>
       <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Students</h1>
-            <p className="text-gray-400 text-sm mt-1">{students.length} total students enrolled in {selectedAcademicYear || activeAcademicYear}</p>
+        {/* Header with Visual Elements */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 mb-8 text-white">
+          <div className="absolute top-0 right-0 w-64 h-64 opacity-10">
+            <Users size={256} className="absolute -top-16 -right-16" />
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => navigate('/students/import')}
-              className="flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition font-medium text-sm shadow-sm"
-            >
-              <Upload size={18} />
-              Import Excel
-            </button>
-            <button
-              onClick={() => navigate('/students/add')}
-              className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition font-medium text-sm shadow-sm"
-            >
-              <Plus size={18} />
-              Add Student
-            </button>
+          <div className="relative z-10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-4xl font-black mb-2">Students Management</h1>
+                <p className="text-white/80 text-lg">{students.length} students enrolled in {selectedAcademicYear || activeAcademicYear}</p>
+                <div className="flex items-center gap-4 mt-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-white/90">Active Session</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                    <span className="text-sm text-white/90">Live Data</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => navigate('/students/import')}
+                  className="flex items-center justify-center gap-2 bg-white/20 backdrop-blur-sm text-white px-6 py-3 rounded-2xl hover:bg-white/30 transition font-medium border border-white/30"
+                >
+                  <Upload size={20} />
+                  Import Excel
+                </button>
+                <button
+                  onClick={() => navigate('/students/add')}
+                  className="flex items-center justify-center gap-2 bg-white text-indigo-600 px-6 py-3 rounded-2xl hover:bg-white/90 transition font-bold shadow-lg"
+                >
+                  <Plus size={20} />
+                  Add Student
+                </button>
+              </div>
+            </div>
           </div>
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400"></div>
         </div>
 
         {error && (
@@ -110,16 +128,22 @@ const Students = () => {
           </div>
         )}
 
-        {/* Filters */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        {/* Filters with Card Design */}
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-lg p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center">
+              <Search size={20} className="text-white" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">Search & Filter Students</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="relative">
-              <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50 focus:bg-white transition"
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-2xl focus:outline-none focus:border-indigo-500 text-sm bg-gray-50 focus:bg-white transition-all"
                 placeholder="Search by name or roll no..."
               />
             </div>
@@ -130,7 +154,7 @@ const Students = () => {
                 setFilterClass('');
                 setFilterSection('');
               }}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50 focus:bg-white transition"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:outline-none focus:border-indigo-500 text-sm bg-gray-50 focus:bg-white transition-all"
             >
               <option value="">Active Academic Year</option>
               {academicYears.map((year) => (
@@ -143,7 +167,7 @@ const Students = () => {
                 setFilterClass(e.target.value);
                 setFilterSection('');
               }}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50 focus:bg-white transition"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:outline-none focus:border-indigo-500 text-sm bg-gray-50 focus:bg-white transition-all"
             >
               <option value="">All Classes</option>
               {classes.map((cls) => (
@@ -154,7 +178,7 @@ const Students = () => {
               value={filterSection}
               onChange={(e) => setFilterSection(e.target.value)}
               disabled={!filterClass || sectionOptions.length === 0}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50 focus:bg-white transition disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:outline-none focus:border-indigo-500 text-sm bg-gray-50 focus:bg-white transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <option value="">
                 {!filterClass
@@ -170,76 +194,100 @@ const Students = () => {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Students Grid/Cards */}
         {loading ? (
           <div className="flex justify-center py-16">
-            <div className="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+              <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-purple-600 rounded-full animate-spin animate-reverse" style={{animationDelay: '0.5s'}} />
+            </div>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <>
             {filteredStudents.length === 0 ? (
-              <div className="py-16 text-center">
-                <Users size={40} className="text-gray-200 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">No students found</p>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl py-20 text-center border-2 border-dashed border-gray-300">
+                <div className="w-24 h-24 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Users size={48} className="text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-700 mb-2">No students found</h3>
+                <p className="text-gray-500 mb-6">Start by adding your first student to the system</p>
                 <button
                   onClick={() => navigate('/students/add')}
-                  className="mt-4 text-indigo-600 text-sm font-medium hover:underline"
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3 rounded-2xl font-bold hover:from-indigo-600 hover:to-purple-700 transition-all transform hover:scale-105"
                 >
-                  Add your first student →
+                  Add First Student →
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100">
-                      {['Student', 'Class', 'Section', 'Roll No', "Father's Name", 'Actions'].map((h) => (
-                        <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {filteredStudents.map((student) => (
-                      <tr key={student._id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs flex-shrink-0">
-                              {student.name?.charAt(0)?.toUpperCase()}
-                            </div>
-                            <span className="font-medium text-gray-800">{student.name}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredStudents.map((student) => (
+                  <div
+                    key={student._id}
+                    className="group bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden hover:-translate-y-2"
+                  >
+                    <div className="relative p-6">
+                      {/* Student Avatar */}
+                      <div className="flex items-center justify-center mb-4">
+                        <div className="relative">
+                          <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white font-black text-2xl shadow-lg">
+                            {student.name?.charAt(0)?.toUpperCase()}
                           </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-600">{student.className}</td>
-                        <td className="px-5 py-3.5 text-gray-600">{student.section}</td>
-                        <td className="px-5 py-3.5">
-                          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium">{student.rollNo}</span>
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-500">{student.fatherName || '—'}</td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => navigate(`/students/edit/${student._id}`)}
-                              className="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-lg transition"
-                              title="Edit"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(student._id)}
-                              className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition"
-                              title="Delete"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                          <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+
+                      {/* Student Info */}
+                      <div className="text-center mb-4">
+                        <h3 className="font-bold text-gray-900 text-lg mb-1">{student.name}</h3>
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">
+                            {student.className}
+                          </span>
+                          <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">
+                            Sec {student.section}
+                          </span>
+                        </div>
+                        <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-2xl inline-block font-bold text-sm">
+                          Roll #{student.rollNo}
+                        </div>
+                      </div>
+
+                      {/* Additional Info */}
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Father's Name:</span>
+                          <span className="font-medium text-gray-700">{student.fatherName || '—'}</span>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => navigate(`/students/edit/${student._id}`)}
+                          className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-2 rounded-2xl font-bold hover:from-blue-600 hover:to-cyan-600 transition-all transform hover:scale-105"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(student._id)}
+                          className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 text-white py-2 rounded-2xl font-bold hover:from-red-600 hover:to-pink-600 transition-all transform hover:scale-105"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Decorative Elements */}
+                    <div className="absolute top-0 right-0 w-16 h-16 opacity-5">
+                      <Users size={64} className="absolute -top-4 -right-4 text-indigo-500" />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
 

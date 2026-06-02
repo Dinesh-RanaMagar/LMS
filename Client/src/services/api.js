@@ -105,6 +105,10 @@ export const marksheetAPI = {
   delete: (id) => apiClient.delete(`/marksheets/${id}`),
 };
 
+export const evaluationAPI = {
+  compare: (data) => apiClient.post('/evaluation/compare', data),
+};
+
 export const promotionAPI = {
   getEligible: () => apiClient.get('/promotions/eligible'),
   promote: (data) => apiClient.post('/promotions/promote', data),

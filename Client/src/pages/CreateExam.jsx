@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { examAPI, subjectAPI, classAPI } from "../services/api";
+import { examAPI, subjectAPI, classAPI, academicYearAPI } from "../services/api";
 import { useAcademicYear } from "../context/AcademicYearContext";
 import Layout from "../components/Layout";
 import {
@@ -119,7 +119,7 @@ const NavButtons = ({ step, totalSteps, onBack, onNext, onSubmit, submitting }) 
 
 const CreateExam = () => {
   const navigate = useNavigate();
-  const { activeYear } = useAcademicYear();
+  const { activeYear, loading: activeYearLoading } = useAcademicYear();
 
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
@@ -244,7 +244,18 @@ const CreateExam = () => {
   const handleSubmit = async () => {
     if (!validate()) return;
 
-    if (!activeYear) {
+    let currentActiveYear = activeYear;
+    if (!currentActiveYear) {
+      try {
+        const res = await academicYearAPI.getAll();
+        const years = res.data.academicYears || [];
+        currentActiveYear = years.find((y) => y.isActive) || null;
+      } catch (err) {
+        console.error('Unable to refresh academic years', err);
+      }
+    }
+
+    if (!currentActiveYear) {
       setError("No active academic year is set. Go to Academic Years and activate one.");
       setStep(1);
       return;

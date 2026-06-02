@@ -134,6 +134,22 @@ npm run dev
 
 Server will run on `http://localhost:5000`
 
+### Seed Default Classes
+
+To add the default school classes from Command Prompt, run:
+
+```bash
+cd Server
+npm run seed:classes
+```
+
+This command resets and creates:
+
+- **Nursery**
+- **KG**
+- **Class 1** to **Class 5** without sections
+- **Class 6** to **Class 10** with only two sections: **A** and **B**
+
 ### Frontend Setup
 
 1. Navigate to Client directory:
@@ -209,6 +225,15 @@ Frontend will run on `http://localhost:3000`
 1. Click "Add Student" from dashboard
 2. Fill in student details
 3. Click "Add Student"
+
+### Assigning Subjects to Classes
+
+1. Go to "Classes & Subject Setup".
+2. Click "Assign Subjects" on the class card.
+3. Select or remove subjects using the checkboxes.
+4. Click "Save".
+
+Subject assignment only controls which subjects belong to a class. Full marks, pass marks, theory marks, and practical marks are not entered in the class subject assignment form.
 
 ### Creating Exams
 

@@ -13,8 +13,9 @@ const marksheetSchema = new mongoose.Schema({
         required: [true, "Exam is required"]
     },
     academicYear: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "AcademicYear"
+        type: String,
+        required: [true, "Academic year is required"],
+        trim: true
     },
     marks: [
         {

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AcademicYearProvider } from './context/AcademicYearContext';
+import { SettingsProvider } from './context/SettingsContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
 
@@ -30,6 +31,7 @@ import AcademicYears from './pages/AcademicYears';
 import Promotion from './pages/Promotion';
 import Teachers from './pages/Teachers';
 import Attendance from './pages/Attendance';
+import EvaluationDashboard from './pages/EvaluationDashboard';
 import Notices from './pages/Notices';
 import Settings from './pages/Settings';
 import PublicWebsite from './pages/PublicWebsite';
@@ -38,11 +40,12 @@ const P = ({ children }) => <ProtectedRoute>{children}</ProtectedRoute>;
 
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ScrollToTop />
       <AuthProvider>
-        <AcademicYearProvider>
-        <Routes>
+        <SettingsProvider>
+          <AcademicYearProvider>
+            <Routes>
           <Route path="/login"    element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/website" element={<PublicWebsite />} />
@@ -73,6 +76,7 @@ function App() {
 
           <Route path="/marks-entry"        element={<P><MarksEntry /></P>} />
           <Route path="/marksheets"         element={<P><Marksheets /></P>} />
+          <Route path="/evaluation"         element={<P><EvaluationDashboard /></P>} />
 
           {/* Academic Year and Promotion routes */}
           <Route path="/academic-years"     element={<P><AcademicYears /></P>} />
@@ -87,8 +91,9 @@ function App() {
           <Route path="/classes/*" element={<P><Classes /></P>} />
           <Route path="/"  element={<PublicWebsite />} />
           <Route path="*"  element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-        </AcademicYearProvider>
+            </Routes>
+          </AcademicYearProvider>
+        </SettingsProvider>
       </AuthProvider>
     </Router>
   );

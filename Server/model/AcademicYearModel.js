@@ -8,13 +8,25 @@ const academicYearSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    dateFormat: {
+      type: String,
+      enum: ['AD', 'BS'],
+      required: [true, 'Date format is required'],
+      default: 'AD',
+    },
     startDate: {
       type: Date,
-      required: [true, "Start date is required"],
     },
     endDate: {
       type: Date,
-      required: [true, "End date is required"],
+    },
+    nepaliStartDate: {
+      type: String,
+      trim: true,
+    },
+    nepaliEndDate: {
+      type: String,
+      trim: true,
     },
     isActive: {
       type: Boolean,
