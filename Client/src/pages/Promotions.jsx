@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, History, User, GraduationCap, ArrowRight } from 'lucide-react';
-import { studentAPI, academicYearAPI, promotionAPI, examAPI, marksheetAPI } from '../services/api';
+import { studentAPI, academicYearAPI, promotionAPI } from '../services/api';
 import Layout from '../components/Layout';
 
 function Promotions() {
@@ -20,14 +20,24 @@ function Promotions() {
   const [filterAcademicYear, setFilterAcademicYear] = useState('');
   const [activeAcademicYear, setActiveAcademicYear] = useState(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const fetchStudents = async () => {
+    if (!filterAcademicYear) return;
+    try {
+      const response = await studentAPI.getAll({ academicYear: filterAcademicYear, status: 'active' });
+      setStudents(response.data?.students || response.data || []);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    }
+  };
 
-  useEffect(() => {
-    fetchStudents();
-    fetchPromotionHistory();
-  }, [filterAcademicYear]);
+  const fetchPromotionHistory = async () => {
+    try {
+      const response = await promotionAPI.getAllHistory();
+      setPromotionHistory(response.data?.history || response.data || []);
+    } catch (error) {
+      console.error('Error fetching promotion history:', error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -48,24 +58,14 @@ function Promotions() {
     }
   };
 
-  const fetchStudents = async () => {
-    if (!filterAcademicYear) return;
-    try {
-      const response = await studentAPI.getAll({ academicYear: filterAcademicYear, status: 'active' });
-      setStudents(response.data?.students || response.data || []);
-    } catch (error) {
-      console.error('Error fetching students:', error);
-    }
-  };
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const fetchPromotionHistory = async () => {
-    try {
-      const response = await promotionAPI.getAllHistory();
-      setPromotionHistory(response.data?.history || response.data || []);
-    } catch (error) {
-      console.error('Error fetching promotion history:', error);
-    }
-  };
+  useEffect(() => {
+    fetchStudents();
+    fetchPromotionHistory();
+  }, [filterAcademicYear]);
 
   const handlePromote = async (e) => {
     e.preventDefault();

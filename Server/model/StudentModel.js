@@ -6,16 +6,11 @@ const studentSchema = new mongoose.Schema({
         required: [true, "Student name is required"],
         trim: true
     },
-    className: {
+    dob: Date,
+    gender: {
         type: String,
-        required: [true, "Class is required"]
-    },
-    section: {
-        type: String,
-        required: [true, "Section is required"]
-    },
-    rollNo: {
-        type: Number
+        enum: ["Male", "Female", "Other", ""],
+        trim: true
     },
     emisCode: {
         type: String,
@@ -33,12 +28,6 @@ const studentSchema = new mongoose.Schema({
         type: String,
         unique: true,
         sparse: true
-    },
-    dob: Date,
-    gender: {
-        type: String,
-        enum: ["Male", "Female", "Other", ""],
-        trim: true
     },
     fatherName: {
         type: String,
@@ -64,32 +53,36 @@ const studentSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
-    academicYear: {
-        type: String,
-        required: [true, "Academic year is required"],
-        trim: true
-    },
-    isPromoted: {
-        type: Boolean,
-        default: false
-    },
-    promotedTo: {
-        type: String,
-        trim: true
-    },
-    promotionDate: Date,
-    status: {
-        type: String,
-        enum: ["active", "promoted", "left"],
-        default: "active"
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    }
+    // Store each academic year record inside the student model
+    academicRecords: [{
+        academicYear: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "AcademicYear",
+            required: true
+        },
+        className: {
+            type: String,
+            required: true,
+            trim: true
+        },
+        section: {
+            type: String,
+            required: true,
+            trim: true
+        },
+        rollNo: {
+            type: Number,
+            default: null
+        },
+        status: {
+            type: String,
+            enum: ["active", "promoted", "left", "retained"],
+            default: "active"
+        }
+    }]
 }, { timestamps: true });
 
-// Create compound unique index for className, section, and rollNo within academic year
-studentSchema.index({ academicYear: 1, className: 1, section: 1, rollNo: 1 }, { unique: true });
+// Index for fast searching by year and class within the array
+studentSchema.index({ "academicRecords.academicYear": 1, "academicRecords.className": 1, "academicRecords.section": 1 });
 
 export default mongoose.model("Student", studentSchema);

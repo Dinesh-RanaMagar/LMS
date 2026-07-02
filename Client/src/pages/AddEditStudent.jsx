@@ -131,7 +131,8 @@ const AddEditStudent = () => {
     }
     setSubmitting(true);
     try {
-      const { studentCode, ...payload } = removeEmptyOptionalFields(formData);
+      const { ...payload } = removeEmptyOptionalFields(formData);
+      delete payload.studentCode;
       if (isEdit) {
         await studentAPI.update(id, payload);
       } else {

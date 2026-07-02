@@ -10,7 +10,6 @@ const emptyForm = { subjectName: '', code: '', description: '' };
 
 const Subjects = () => {
   const [subjects, setSubjects] = useState([]);
-  const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -22,15 +21,10 @@ const Subjects = () => {
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  useEffect(() => { fetchSubjects(); }, []);
-
-  useEffect(() => {
-    if (!searchTerm) return setFiltered(subjects);
-    setFiltered(subjects.filter(s =>
-      s.subjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.code && s.code.toLowerCase().includes(searchTerm.toLowerCase()))
-    ));
-  }, [subjects, searchTerm]);
+  const filtered = !searchTerm ? subjects : subjects.filter(s =>
+    s.subjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (s.code && s.code.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   const fetchSubjects = async () => {
     try {
@@ -43,6 +37,8 @@ const Subjects = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => { fetchSubjects(); }, []);
 
   const openAdd = () => {
     setForm(emptyForm);

@@ -39,14 +39,14 @@ const Promotion = () => {
 
             if (eligible.length === 0) {
                 setPromotionLocked(true);
-                setLockReason("No eligible students found. Complete final exam grading for the active academic year before promotion.");
+                setLockReason("All students with final exam results have already been promoted, or no marksheets exist for the final exam yet.");
             }
         } catch (fetchError) {
             console.error("Error fetching eligible students:", fetchError);
 
             if (fetchError.response?.status === 404) {
                 setPromotionLocked(true);
-                setLockReason("No completed final exams found for the active academic year. Please complete final exams first.");
+                setLockReason(fetchError.response?.data?.message || "No published final exams found for the active academic year. Please mark an exam as 'Final Exam' and publish its results first.");
                 setEligibleStudents([]);
                 setAcademicYears([]);
                 setTargetAcademicYear("");

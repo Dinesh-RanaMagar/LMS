@@ -13,13 +13,13 @@ const Attendance = () => {
   const [records, setRecords] = useState({});
   const [message, setMessage] = useState('');
 
-  useEffect(() => { load(); }, []);
-
   const load = async () => {
     const [classRes, studentRes] = await Promise.all([classAPI.getAll(), studentAPI.getAll()]);
     setClasses(classRes.data.classes || []);
     setStudents(studentRes.data.students || []);
   };
+
+  useEffect(() => { load(); }, []);
 
   const filtered = students.filter((s) => (!className || s.className === className) && (!section || s.section === section));
   const sections = classes.find((c) => c.className === className)?.sections || [];

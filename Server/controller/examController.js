@@ -33,7 +33,7 @@ const buildClassConfigs = async (classNames, subjectSelectionMode, subjectsPaylo
     const configs = [];
 
     for (const className of classNames) {
-        let subjects = [];
+        let subjects;
 
         if (subjectSelectionMode === "allSubjects") {
             // Load all global subjects and map to config shape

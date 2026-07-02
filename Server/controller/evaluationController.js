@@ -3,6 +3,7 @@ import Student from '../model/StudentModel.js';
 import Exam from '../model/examModel.js';
 import Marksheet from '../model/MarksheetModel.js';
 import Attendance from '../model/AttendanceModel.js';
+import AcademicYear from '../model/AcademicYearModel.js';
 
 const getGradeFromPercentage = (percentage) => {
   if (percentage >= 90) return 'A+';
@@ -10,6 +11,7 @@ const getGradeFromPercentage = (percentage) => {
   if (percentage >= 70) return 'B+';
   if (percentage >= 60) return 'B';
   if (percentage >= 50) return 'C';
+  if (percentage >= 40) return 'D';
   return 'F';
 };
 
@@ -19,6 +21,7 @@ const getGpaFromPercentage = (percentage) => {
   if (percentage >= 70) return 3.2;
   if (percentage >= 60) return 2.8;
   if (percentage >= 50) return 2.4;
+  if (percentage >= 40) return 2.0;
   return 0.0;
 };
 
@@ -51,9 +54,14 @@ const buildAiSummary = ({ strongSubjects, weakSubjects, improvement, stableSubje
   return pieces.join(' ');
 };
 
-const calculateAttendance = async (student) => {
-  const className = student.className;
-  const section = student.section;
+const calculateAttendance = async (student, academicYearName) => {
+  const year = await AcademicYear.findOne({ yearName: academicYearName });
+  if (!year) return { percentage: null, records: 0, present: 0, absent: 0 };
+
+  const record = student.academicRecords?.find(r => String(r.academicYear) === String(year._id));
+  if (!record) return { percentage: null, records: 0, present: 0, absent: 0 };
+
+  const { className, section } = record;
   if (!className || !section) return { percentage: null, records: 0, present: 0, absent: 0 };
 
   const attendanceRows = await Attendance.find({ type: 'student', className, section });
@@ -82,14 +90,29 @@ const calculateAttendance = async (student) => {
 };
 
 const getRankForExam = async (exam, student) => {
-  const candidates = await Marksheet.find({ exam: exam._id }).populate('student');
-  const sameClass = candidates.filter((item) => item.student && item.student.className === student.className && item.student.section === student.section);
-  if (!sameClass.length) return { rank: null, totalStudents: 0, classAverage: null };
+  const year = await AcademicYear.findOne({ yearName: exam.academicYear });
+  if (!year) return { rank: null, totalStudents: 0, classAverage: null };
 
-  const sorted = [...sameClass].sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
+  const studentRecord = await StudentAcademicYear.findOne({ student: student._id, academicYear: year._id });
+  if (!studentRecord) return { rank: null, totalStudents: 0, classAverage: null };
+
+  const { className, section } = studentRecord;
+
+  // Find all students in this class/section for this year
+  const peers = await StudentAcademicYear.find({ academicYear: year._id, className, section }).select('student');
+  const peerIds = peers.map(p => p.student);
+
+  const candidates = await Marksheet.find({ 
+    exam: exam._id,
+    student: { $in: peerIds }
+  }).populate('student');
+
+  if (!candidates.length) return { rank: null, totalStudents: 0, classAverage: null };
+
+  const sorted = [...candidates].sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
   const rank = sorted.findIndex((item) => String(item.student._id) === String(student._id)) + 1;
-  const classAverage = Number((sameClass.reduce((sum, item) => sum + (item.percentage || 0), 0) / sameClass.length).toFixed(1));
-  return { rank: rank || null, totalStudents: sameClass.length, classAverage };
+  const classAverage = Number((candidates.reduce((sum, item) => sum + (item.percentage || 0), 0) / candidates.length).toFixed(1));
+  return { rank: rank || null, totalStudents: candidates.length, classAverage };
 };
 
 export const compareEvaluation = async (req, res) => {
@@ -116,7 +139,6 @@ export const compareEvaluation = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No matching exams found' });
     }
 
-    // Preserve the selection order sent by the client
     const exams = examIds
       .map((id) => examsRaw.find((e) => String(e._id) === String(id) || e.examName === String(id).trim()))
       .filter(Boolean);
@@ -125,34 +147,25 @@ export const compareEvaluation = async (req, res) => {
       .populate('exam')
       .populate('student');
 
-    console.log('Found marksheets:', marksheets.length);
-    console.log('Sample marksheet data:', marksheets[0] ? {
-      totalMarks: marksheets[0].totalMarks,
-      totalFullMarks: marksheets[0].totalFullMarks,
-      percentage: marksheets[0].percentage,
-      grade: marksheets[0].grade,
-      marks: marksheets[0].marks.map(m => ({
-        subject: m.subject,
-        obtainedMarks: m.obtainedMarks,
-        fullMarks: m.fullMarks,
-        percentage: m.percentage
-      }))
-    } : 'No marksheets found');
-
     const marksheetMap = new Map(marksheets.map((marksheet) => [String(marksheet.exam._id), marksheet]));
     const subjectNames = [...new Set(marksheets.flatMap((marksheet) => marksheet.marks.map((item) => item.subject)))].sort();
 
     const examsWithMetrics = await Promise.all(exams.map(async (exam) => {
       const marksheet = marksheetMap.get(String(exam._id));
       const { rank, totalStudents, classAverage } = await getRankForExam(exam, student);
+      const storedGpa = marksheet?.gpa ?? null;
+      const storedPercentage = marksheet?.percentage ?? null;
+      const derivedGpa = storedGpa === 0 && storedPercentage != null && storedPercentage > 0
+        ? getGpaFromPercentage(storedPercentage)
+        : storedGpa;
       return {
         _id: exam._id,
         examName: exam.examName,
-        percentage: marksheet?.percentage ?? null,
-        gpa: marksheet?.gpa ?? null,
-        finalGrade: marksheet?.grade ?? null, // Use 'grade' field from marksheet
-        obtainedMarks: marksheet?.totalMarks ?? null, // This is the sum of all obtained marks
-        totalMarks: marksheet?.totalFullMarks ?? null, // This is the sum of all full marks
+        percentage: storedPercentage,
+        gpa: derivedGpa,
+        finalGrade: marksheet?.grade ?? null,
+        obtainedMarks: marksheet?.totalMarks ?? null,
+        totalMarks: marksheet?.totalFullMarks ?? null,
         status: marksheet ? 'Published' : 'Missing',
         result: marksheet?.result ?? 'Pending',
         rank,
@@ -168,7 +181,6 @@ export const compareEvaluation = async (req, res) => {
         const subjectMark = marksheet.marks.find((item) => item.subject === subject);
         if (!subjectMark) return null;
         
-        // Use obtainedMarks from the subject mark (this is the actual marks obtained)
         const totalObtained = subjectMark.obtainedMarks ?? 0;
         const fullMarks = subjectMark.fullMarks ?? 0;
         const percentage = fullMarks ? Number(((totalObtained / fullMarks) * 100).toFixed(1)) : 0;
@@ -221,12 +233,26 @@ export const compareEvaluation = async (req, res) => {
     const weakSubjects = subjectPerformance.filter((item) => item.average != null && item.average < 60).map((item) => item.subject);
     const stableSubjects = subjectComparison.filter((item) => item.change === 0).map((item) => item.subject);
 
-    const attendance = await calculateAttendance(student);
+    // Use the academic year of the most recent exam for attendance calculation
+    const latestExam = exams[exams.length - 1];
+    const attendance = await calculateAttendance(student, latestExam?.academicYear);
+    
     const aiSummary = buildAiSummary({ strongSubjects, weakSubjects, improvement, stableSubjects });
+
+    // Attach current relationship data to student for the UI
+    const latestYear = await AcademicYear.findOne({ yearName: latestExam?.academicYear });
+    const latestRecord = student.academicRecords?.find(r => String(r.academicYear) === String(latestYear?._id));
+    const studentWithYear = {
+        ...student.toObject(),
+        className: latestRecord?.className,
+        section: latestRecord?.section,
+        rollNo: latestRecord?.rollNo,
+        academicYear: latestExam?.academicYear
+    };
 
     return res.json({
       success: true,
-      student,
+      student: studentWithYear,
       exams: examsWithMetrics,
       subjects: subjectComparison,
       summary: {

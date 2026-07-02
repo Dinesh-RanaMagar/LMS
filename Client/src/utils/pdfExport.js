@@ -369,7 +369,7 @@ export const generateEvaluationPDF = (dashboard, selectedStudent, selectedExams,
   };
 };
 
-export const generateComparisonPDF = (dashboard1, dashboard2, student1, student2, selectedExams, mode) => {
+export const generateComparisonPDF = () => {
   // Similar implementation for comparison PDF
   console.log('Comparison PDF generation would be implemented here');
 };

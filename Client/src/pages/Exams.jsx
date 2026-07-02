@@ -87,31 +87,38 @@ const Exams = () => {
   const [lockTarget, setLockTarget] = useState(null);
   const [unlockTarget, setUnlockTarget] = useState(null);
 
+  const fetchActiveYear = async () => {
+    try {
+      const res = await academicYearAPI.getAll();
+      const active = res.data?.academicYears?.find((y) => y.isActive);
+      if (active) {
+        setActiveYear(active.yearName);
+        setFilterYear(active.yearName);
+      }
+    } catch (err) {
+      console.error('Fetch active year error:', err);
+    }
+  };
+
   useEffect(() => {
     fetchActiveYear();
   }, []);
 
+  const fetchExams = async (year) => {
+    try {
+      setLoading(true);
+      const res = await examAPI.getAll({ academicYear: year });
+      setExams(res.data.exams || []);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load exams');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeYear) fetchExams(activeYear);
   }, [activeYear]);
-
-  const fetchActiveYear = async () => {
-    try {
-      const res = await academicYearAPI.getAll();
-      const years = res.data.academicYears || res.data || [];
-      const active = years.find(y => y.isActive);
-      if (active) {
-        setActiveYear(active.yearName);
-        setFilterYear(active.yearName); // default filter to active year
-        return;
-      }
-    } catch {
-      // silently fail — exams will load once active year is available
-    }
-
-    // If no active year is found, still load exams with fallback behavior.
-    fetchExams();
-  };
 
   useEffect(() => {
     let result = exams;
@@ -121,20 +128,6 @@ const Exams = () => {
     if (filterStatus) result = result.filter(e => e.status === filterStatus);
     setFiltered(result);
   }, [exams, search, filterYear, filterType, filterStatus]);
-
-  const fetchExams = async (year) => {
-    try {
-      setLoading(true);
-      const params = {};
-      if (year) params.academicYear = year;
-      const res = await examAPI.getAll(params);
-      setExams(res.data.exams || []);
-    } catch {
-      setError('Failed to load exams');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
 

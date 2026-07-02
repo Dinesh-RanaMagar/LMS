@@ -10,12 +10,14 @@ const Teachers = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => { fetchTeachers(); }, []);
-
   const fetchTeachers = async () => {
     const res = await teacherAPI.getAll();
     setTeachers(res.data.teachers || []);
   };
+
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();

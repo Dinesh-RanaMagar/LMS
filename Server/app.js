@@ -48,7 +48,6 @@ app.use('/api/evaluation', evaluationRoute);
 app.use('/api/uploads', uploadRoute);
 
 // Express v5 compatible error handler
-// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error(err.stack || err);
   const status = err.status || err.statusCode || 500;

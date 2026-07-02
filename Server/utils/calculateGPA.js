@@ -69,7 +69,10 @@ export const calculateCreditHourGPA = (marks = []) => {
   });
 
   const percentage = totalFullMarks ? (totalMarks / totalFullMarks) * 100 : 0;
-  const gpa = totalCreditHour ? Number((totalWeightedGradePoints / totalCreditHour).toFixed(2)) : 0;
+  // If no credit hours are assigned, derive GPA from overall percentage instead of returning 0
+  const gpa = totalCreditHour
+    ? Number((totalWeightedGradePoints / totalCreditHour).toFixed(2))
+    : Number(getGradePoint(percentage).toFixed(2));
   const grade = getGrade(percentage);
   const result = hasFailedSubject ? "Fail" : "Pass";
 

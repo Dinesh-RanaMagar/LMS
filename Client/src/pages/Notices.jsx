@@ -8,12 +8,12 @@ const Notices = () => {
   const [notices, setNotices] = useState([]);
   const [form, setForm] = useState({ title: '', message: '', audience: 'all', isPinned: false, isPublished: true });
 
-  useEffect(() => { fetchNotices(); }, []);
-
   const fetchNotices = async () => {
     const res = await noticeAPI.getAll();
     setNotices(res.data.notices || []);
   };
+
+  useEffect(() => { fetchNotices(); }, []);
 
   const submit = async (e) => {
     e.preventDefault();

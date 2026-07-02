@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import {
@@ -46,7 +46,6 @@ const getImageUrl = (url) => {
 };
 
 const Sidebar = () => {
-  const location = useLocation();
   const navigate = useNavigate();
   const { admin, logout } = useAuth();
   const { settings } = useSettings();
@@ -57,76 +56,6 @@ const Sidebar = () => {
     await logout();
     navigate('/login');
   };
-
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full">
-      <div className={`flex items-center gap-3 px-4 py-5 border-b border-indigo-700 ${collapsed ? 'justify-center' : ''}`}>
-        <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow">
-          {settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="School logo" className="w-7 h-7 object-contain" /> : <GraduationCap size={22} className="text-indigo-600" />}
-        </div>
-        {!collapsed && (
-          <div>
-            <p className="text-white font-bold text-base leading-tight truncate max-w-36">{settings?.schoolName || 'EduAdmin'}</p>
-            <p className="text-indigo-300 text-xs">School Management</p>
-          </div>
-        )}
-      </div>
-
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navItems.map(({ path, label, icon: Icon }) => {
-          const active = location.pathname === path || location.pathname.startsWith(path + '/');
-          return (
-            <Link
-              key={path}
-              to={path}
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group relative
-                ${active
-                  ? 'bg-white text-indigo-700 shadow font-semibold'
-                  : 'text-indigo-100 hover:bg-indigo-700 hover:text-white'
-                }
-                ${collapsed ? 'justify-center' : ''}
-              `}
-            >
-              <Icon size={20} className="flex-shrink-0" />
-              {!collapsed && <span className="text-sm">{label}</span>}
-              {!collapsed && active && (
-                <ChevronRight size={16} className="ml-auto text-indigo-400" />
-              )}
-              {collapsed && (
-                <span className="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
-                  {label}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className={`border-t border-indigo-700 p-3 ${collapsed ? 'flex flex-col items-center gap-2' : ''}`}>
-        {!collapsed && (
-          <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-indigo-400 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              {admin?.name?.charAt(0)?.toUpperCase() || 'A'}
-            </div>
-            <div className="min-w-0">
-              <p className="text-white text-sm font-medium truncate">{admin?.name || 'Admin'}</p>
-              <p className="text-indigo-300 text-xs truncate">{admin?.email || ''}</p>
-            </div>
-          </div>
-        )}
-        <button
-          onClick={handleLogout}
-          className={`flex items-center gap-2 w-full px-3 py-2 rounded-xl text-indigo-200 hover:bg-red-500 hover:text-white transition-all text-sm
-            ${collapsed ? 'justify-center' : ''}
-          `}
-        >
-          <LogOut size={18} />
-          {!collapsed && <span>Logout</span>}
-        </button>
-      </div>
-    </div>
-  );
 
   return (
     <>
@@ -143,37 +72,103 @@ const Sidebar = () => {
             {collapsed ? <ChevronRight size={12} className="text-indigo-600" /> : <X size={12} className="text-indigo-600" />}
           </div>
         </button>
-        <SidebarContent />
+        <SidebarContent collapsed={collapsed} settings={settings} admin={admin} handleLogout={handleLogout} />
       </aside>
 
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-indigo-800 flex items-center justify-between px-4 h-14 shadow-lg">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
-            {settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="School logo" className="w-5 h-5 object-contain" /> : <GraduationCap size={16} className="text-indigo-600" />}
-          </div>
-          <span className="text-white font-bold text-base truncate max-w-48">{settings?.schoolName || 'EduAdmin'}</span>
-        </div>
-        <button onClick={() => setMobileOpen(true)} className="text-white p-1">
+        <button onClick={() => setMobileOpen(true)} className="p-2 text-white">
           <Menu size={24} />
         </button>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow">
+            {settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="Logo" className="w-5 h-5 object-contain" /> : <GraduationCap size={16} className="text-indigo-600" />}
+          </div>
+          <span className="text-white font-bold text-sm truncate max-w-40">{settings?.schoolName || 'EduAdmin'}</span>
+        </div>
+        <div className="w-8 h-8 rounded-full bg-indigo-400 flex items-center justify-center text-white font-bold text-xs">
+          {admin?.name?.charAt(0)?.toUpperCase() || 'A'}
+        </div>
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <aside className="relative w-64 bg-indigo-800 flex flex-col h-full shadow-2xl">
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-4 text-indigo-200 hover:text-white"
-            >
+        <div className="md:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
+          <aside className="fixed top-0 left-0 bottom-0 w-72 bg-indigo-800 shadow-2xl flex flex-col">
+            <button onClick={() => setMobileOpen(false)} className="absolute top-4 right-4 p-2 text-white hover:bg-indigo-700 rounded-lg">
               <X size={22} />
             </button>
-            <SidebarContent />
+            <SidebarContent collapsed={false} settings={settings} admin={admin} handleLogout={handleLogout} />
           </aside>
         </div>
       )}
     </>
   );
 };
+
+const SidebarContent = ({ collapsed, settings, admin, handleLogout }) => (
+  <div className="flex flex-col h-full">
+    <div className={`flex items-center gap-3 px-4 py-5 border-b border-indigo-700 ${collapsed ? 'justify-center' : ''}`}>
+      <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow">
+        {settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="School logo" className="w-7 h-7 object-contain" /> : <GraduationCap size={22} className="text-indigo-600" />}
+      </div>
+      {!collapsed && (
+        <div>
+          <p className="text-white font-bold text-base leading-tight truncate max-w-36">{settings?.schoolName || 'EduAdmin'}</p>
+          <p className="text-indigo-300 text-xs">School Management</p>
+        </div>
+      )}
+    </div>
+
+    <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      {navItems.map(({ path, label, icon: Icon }) => {
+        const active = window.location.pathname === path || window.location.pathname.startsWith(path + '/');
+        return (
+          <Link
+            key={path}
+            to={path}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group relative
+              ${
+                active
+                  ? 'bg-white text-indigo-700 shadow font-semibold'
+                  : 'text-indigo-100 hover:bg-indigo-700 hover:text-white'
+              }
+              ${collapsed ? 'justify-center' : ''}
+            `}
+          >
+            <Icon size={20} className="flex-shrink-0" />
+            {!collapsed && <span className="text-sm">{label}</span>}
+            {collapsed && (
+              <span className="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                {label}
+              </span>
+            )}
+          </Link>
+        );
+      })}
+    </nav>
+
+    <div className={`border-t border-indigo-700 p-3 ${collapsed ? 'flex flex-col items-center gap-2' : ''}`}>
+      {!collapsed && (
+        <div className="flex items-center gap-3 px-3 py-2 mb-2">
+          <div className="w-8 h-8 rounded-full bg-indigo-400 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            {admin?.name?.charAt(0)?.toUpperCase() || 'A'}
+          </div>
+          <div className="min-w-0">
+            <p className="text-white text-sm font-medium truncate">{admin?.name || 'Admin'}</p>
+            <p className="text-indigo-300 text-xs truncate">{admin?.email || ''}</p>
+          </div>
+        </div>
+      )}
+      <button
+        onClick={handleLogout}
+        className={`flex items-center gap-2 w-full px-3 py-2 rounded-xl text-indigo-200 hover:bg-red-500 hover:text-white transition-all text-sm
+          ${collapsed ? 'justify-center' : ''}
+        `}
+      >
+        <LogOut size={18} />
+        {!collapsed && <span>Logout</span>}
+      </button>
+    </div>
+  </div>
+);
 
 export default Sidebar;

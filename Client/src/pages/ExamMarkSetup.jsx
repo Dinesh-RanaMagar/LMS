@@ -20,10 +20,6 @@ const ExamMarkSetup = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    fetchExam();
-  }, [id]);
-
   const fetchExam = async () => {
     try {
       setLoading(true);
@@ -40,6 +36,10 @@ const ExamMarkSetup = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchExam();
+  }, [id]);
 
   const selectedConfig = useMemo(
     () => exam?.classExamConfigs?.find((config) => config.className === selectedClass),
@@ -220,7 +220,7 @@ const ExamMarkSetup = () => {
                       <div className="px-3 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold text-gray-800">{subject.subjectName}</div>
                     </div>
                     <NumberField label="Theory Full" value={subject.theoryFullMarks} onChange={(value) => updateSubject(index, 'theoryFullMarks', value)} />
-                    <NumberField label="Theory Pass" value={subject.theoryPassMarks} onChange={(value) => updateSubject(index, 'theoryPassMarks', value)} />
+                    <NumberField label="Theory Pass" value={subject.theoryPassMarks} onChange={(value) => updateSubject(index, 'theoryPassMarks', value)} />cd
                     <NumberField label="Practical Full" value={subject.practicalFullMarks} disabled={!subject.hasPractical} onChange={(value) => updateSubject(index, 'practicalFullMarks', value)} />
                     <NumberField label="Practical Pass" value={subject.practicalPassMarks} disabled={!subject.hasPractical} onChange={(value) => updateSubject(index, 'practicalPassMarks', value)} />
                     <NumberField label="Credit Hour" value={subject.creditHour} step="0.1" onChange={(value) => updateSubject(index, 'creditHour', value)} />

@@ -18,9 +18,18 @@ function AcademicYears() {
     isActive: false,
   });
 
-  useEffect(() => {
-    fetchAcademicYears();
-  }, []);
+  const resetForm = () => {
+    setEditingYear(null);
+    setFormData({
+      yearName: '',
+      dateFormat: 'AD',
+      startDate: '',
+      endDate: '',
+      nepaliStartDate: '',
+      nepaliEndDate: '',
+      isActive: false,
+    });
+  };
 
   const fetchAcademicYears = async () => {
     try {
@@ -83,18 +92,9 @@ function AcademicYears() {
     }
   };
 
-  const resetForm = () => {
-    setEditingYear(null);
-    setFormData({
-      yearName: '',
-      dateFormat: 'AD',
-      startDate: '',
-      endDate: '',
-      nepaliStartDate: '',
-      nepaliEndDate: '',
-      isActive: false,
-    });
-  };
+  useEffect(() => {
+    fetchAcademicYears();
+  }, []);
 
   if (loading) {
     return (

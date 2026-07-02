@@ -3,12 +3,39 @@ import Student from "../model/StudentModel.js";
 import Exam from "../model/examModel.js";
 import AcademicYear from "../model/AcademicYearModel.js";
 
+/**
+ * Attaches academic year fields (className, rollNo) to a student object inside a marksheet
+ * by looking into the student's embedded history.
+ */
+const attachStudentYearData = async (marksheet) => {
+  if (!marksheet.student || !marksheet.student._id) return marksheet;
+
+  const student = await Student.findById(marksheet.student._id);
+  if (!student) return marksheet;
+
+  const year = await AcademicYear.findOne({ yearName: marksheet.academicYear });
+  if (!year) return marksheet;
+
+  // Find the matching record in the student's internal history
+  const record = student.academicRecords?.find(r => 
+    String(r.academicYear) === String(year._id)
+  );
+
+  if (record) {
+    const studentObj = marksheet.student.toObject ? marksheet.student.toObject() : { ...marksheet.student };
+    studentObj.className = record.className;
+    studentObj.section = record.section;
+    studentObj.rollNo = record.rollNo;
+    marksheet.student = studentObj;
+  }
+  return marksheet;
+};
+
 // CREATE/ENTER MARKS
 export const createMarksheet = async (req, res) => {
   try {
     const { studentId, examId, marks } = req.body;
 
-    // Validation
     if (!studentId || !examId || !Array.isArray(marks) || marks.length === 0) {
       return res.status(400).json({
         success: false,
@@ -16,19 +43,16 @@ export const createMarksheet = async (req, res) => {
       });
     }
 
-    // Check student exists
     const student = await Student.findById(studentId);
     if (!student) {
       return res.status(404).json({ success: false, message: "Student not found" });
     }
 
-    // Check exam exists
     const exam = await Exam.findById(examId);
     if (!exam) {
       return res.status(404).json({ success: false, message: "Exam not found" });
     }
 
-    // Check if marksheet already exists
     const existing = await Marksheet.findOne({ student: studentId, exam: examId });
     if (existing) {
       return res.status(400).json({
@@ -37,24 +61,25 @@ export const createMarksheet = async (req, res) => {
       });
     }
 
-    // Create marksheet
     const marksheet = new Marksheet({
       student: studentId,
       exam: examId,
-      academicYear: exam.academicYear || student.academicYear,
+      academicYear: exam.academicYear,
       marks
     });
 
     marksheet.calculateGrade();
-
     await marksheet.save();
-    await marksheet.populate("student", "name className rollNo symbolNo");
+
+    await marksheet.populate("student", "name symbolNo");
     await marksheet.populate("exam", "examName className year academicYear classExamConfigs");
+
+    const enriched = await attachStudentYearData(marksheet);
 
     res.status(201).json({
       success: true,
       message: "Marksheet created successfully",
-      marksheet
+      marksheet: enriched
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -90,9 +115,12 @@ export const getMarksheets = async (req, res) => {
     }
 
     let marksheets = await Marksheet.find(filter)
-      .populate("student", "name className rollNo symbolNo")
+      .populate("student", "name symbolNo")
       .populate("exam", "examName className year academicYear classExamConfigs isResultPublished")
       .sort({ createdAt: -1 });
+
+    // Enrich marksheets with student year data
+    marksheets = await Promise.all(marksheets.map(m => attachStudentYearData(m)));
 
     if (className) {
       marksheets = marksheets.filter(
@@ -126,7 +154,8 @@ export const getMarksheetById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Marksheet not found" });
     }
 
-    res.json({ success: true, marksheet });
+    const enriched = await attachStudentYearData(marksheet);
+    res.json({ success: true, marksheet: enriched });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -144,6 +173,9 @@ export const getMarksheetsByStudent = async (req, res) => {
     // Filter out marksheets whose exams are not published
     if (!includeUnpublished) marksheets = marksheets.filter((m) => m.exam && m.exam.isResultPublished);
 
+    // Enrich with year data
+    marksheets = await Promise.all(marksheets.map(m => attachStudentYearData(m)));
+
     res.json({ success: true, count: marksheets.length, marksheets });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -160,10 +192,16 @@ export const getMarksheetsByExam = async (req, res) => {
       return res.json({ success: true, count: 0, marksheets: [] });
     }
 
-    const marksheets = await Marksheet.find({ exam: req.params.examId })
-      .populate("student", "name className rollNo symbolNo")
+    let marksheets = await Marksheet.find({ exam: req.params.examId })
+      .populate("student", "name symbolNo")
       .populate("exam")
-      .sort({ "student.rollNo": 1 });
+      .sort({ createdAt: 1 });
+
+    // Enrich with year data
+    marksheets = await Promise.all(marksheets.map(m => attachStudentYearData(m)));
+
+    // Sort by roll number if available
+    marksheets.sort((a, b) => (a.student?.rollNo || 0) - (b.student?.rollNo || 0));
 
     res.json({ success: true, count: marksheets.length, marksheets });
   } catch (error) {
@@ -191,7 +229,8 @@ export const getMarksheetByStudentExam = async (req, res) => {
       return res.status(404).json({ success: false, message: "Marksheet not found for this student and exam" });
     }
 
-    res.json({ success: true, marksheet });
+    const enriched = await attachStudentYearData(marksheet);
+    res.json({ success: true, marksheet: enriched });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -217,13 +256,15 @@ export const updateMarksheet = async (req, res) => {
     marksheet.calculateGrade();
 
     await marksheet.save();
-    await marksheet.populate("student", "name className rollNo symbolNo");
+    await marksheet.populate("student", "name symbolNo");
     await marksheet.populate("exam", "examName className year academicYear classExamConfigs");
+
+    const enriched = await attachStudentYearData(marksheet);
 
     res.json({
       success: true,
       message: "Marksheet updated successfully",
-      marksheet
+      marksheet: enriched
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -117,23 +117,16 @@ const EvaluationDashboard = () => {
   
   // UI State
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
-  const [showClassDropdown, setShowClassDropdown] = useState(false);
-  const [showSectionDropdown, setShowSectionDropdown] = useState(false);
   const [showTermDropdown, setShowTermDropdown] = useState(false);
-  const [showDisplayModeDropdown, setShowDisplayModeDropdown] = useState(false);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
-  // Close dropdowns when clicking outside
+  // Close custom dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
       setShowStudentDropdown(false);
-      setShowClassDropdown(false);
-      setShowSectionDropdown(false);
       setShowTermDropdown(false);
-      setShowDisplayModeDropdown(false);
       setShowExportDropdown(false);
     };
-    
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
@@ -274,241 +267,114 @@ const EvaluationDashboard = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Top Control Bar */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left Section - Title */}
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Student Evaluation</h1>
-              <p className="text-sm text-gray-500 mt-1">Comprehensive academic performance analysis</p>
-            </div>
+        <div className="px-6 py-3">
+          {/* Title */}
+          <div className="mb-3">
+            <h1 className="text-xl font-semibold text-gray-900">Student Evaluation</h1>
+            <p className="text-xs text-gray-500">Comprehensive academic performance analysis</p>
+          </div>
+          {/* Controls — single row */}
+          <div className="flex items-center gap-2 flex-wrap">
 
-            {/* Right Section - Controls */}
-            <div className="flex items-center space-x-4">
-              {/* Class Dropdown */}
+              {/* Class — native select */}
+              <select
+                value={selectedClass}
+                onChange={(e) => { setSelectedClass(e.target.value); setSelectedSection(''); setSelectedStudentId(''); setDashboard(null); }}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              >
+                <option value="">All Classes</option>
+                {classes.map((cls) => (
+                  <option key={cls._id} value={cls.className}>{cls.className}</option>
+                ))}
+              </select>
+
+              {/* Section — native select */}
+              <select
+                value={selectedSection}
+                onChange={(e) => { setSelectedSection(e.target.value); setSelectedStudentId(''); setDashboard(null); }}
+                disabled={!selectedClass}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">All Sections</option>
+                {sectionOptions.map((section) => (
+                  <option key={section} value={section}>Section {section}</option>
+                ))}
+              </select>
+
+              {/* Student — custom dropdown (needs search) */}
               <div className="relative">
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowClassDropdown(!showClassDropdown);
-                  }}
-                  className="flex items-center space-x-2 bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-w-[120px]"
-                >
-                  <span>
-                    {selectedClass || 'Select Class'}
-                  </span>
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
-                </button>
-
-                {showClassDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
-                    <div className="py-2">
-                      <button
-                        onClick={() => {
-                          setSelectedClass('');
-                          setSelectedSection('');
-                          setSelectedStudentId('');
-                          setShowClassDropdown(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
-                      >
-                        All Classes
-                      </button>
-                      {classes.map((cls) => (
-                        <button
-                          key={cls._id}
-                          onClick={() => {
-                            setSelectedClass(cls.className);
-                            setSelectedSection('');
-                            setSelectedStudentId('');
-                            setShowClassDropdown(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 focus:outline-none focus:bg-gray-50 ${
-                            selectedClass === cls.className ? 'text-indigo-600 bg-indigo-50' : 'text-gray-700'
-                          }`}
-                        >
-                          {cls.className}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Section Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowSectionDropdown(!showSectionDropdown);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); setShowStudentDropdown(!showStudentDropdown); setShowTermDropdown(false); setShowExportDropdown(false); }}
                   disabled={!selectedClass}
-                  className="flex items-center space-x-2 bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span>
-                    {selectedSection ? `Section ${selectedSection}` : 'All Sections'}
-                  </span>
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
-                </button>
-
-                {showSectionDropdown && selectedClass && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
-                    <div className="py-2">
-                      <button
-                        onClick={() => {
-                          setSelectedSection('');
-                          setSelectedStudentId('');
-                          setShowSectionDropdown(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
-                      >
-                        All Sections
-                      </button>
-                      {sectionOptions.map((section) => (
-                        <button
-                          key={section}
-                          onClick={() => {
-                            setSelectedSection(section);
-                            setSelectedStudentId('');
-                            setShowSectionDropdown(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 focus:outline-none focus:bg-gray-50 ${
-                            selectedSection === section ? 'text-indigo-600 bg-indigo-50' : 'text-gray-700'
-                          }`}
-                        >
-                          Section {section}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Student Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowStudentDropdown(!showStudentDropdown);
-                  }}
-                  disabled={!selectedClass}
-                  className="flex items-center space-x-3 bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-w-[240px] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {selectedStudent ? (
                     <>
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-sm font-semibold">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-semibold flex-shrink-0">
                         {selectedStudent.name?.charAt(0)?.toUpperCase()}
                       </div>
-                      <div className="flex-1 text-left">
-                        <div className="font-medium text-gray-900">{selectedStudent.name}</div>
-                        <div className="text-xs text-gray-500">
-                          Roll {selectedStudent.rollNo}
-                        </div>
-                      </div>
+                      <span>{selectedStudent.name}</span>
                     </>
                   ) : (
-                    <>
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200">
-                        <User className="h-4 w-4 text-gray-400" />
-                      </div>
-                      <span className="flex-1 text-left text-gray-500">Select Student</span>
-                    </>
+                    <><User className="h-3.5 w-3.5 text-gray-400" /><span className="text-gray-500">Select Student</span></>
                   )}
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                 </button>
                 {showStudentDropdown && selectedClass && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
-                    <div className="p-4 border-b border-gray-100">
+                  <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-[999]">
+                    <div className="p-3 border-b border-gray-100">
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Search students..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input type="text" placeholder="Search students..." value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)} onClick={(e) => e.stopPropagation()}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                       </div>
                     </div>
-                    <div className="max-h-64 overflow-y-auto">
+                    <div className="max-h-60 overflow-y-auto">
                       {filteredStudents.map((student) => (
-                        <button
-                          key={student._id}
-                          onClick={() => {
-                            setSelectedStudentId(student._id);
-                            setShowStudentDropdown(false);
-                            setDashboard(null);
-                          }}
-                          className="w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
-                        >
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-sm font-semibold">
+                        <button key={student._id}
+                          onClick={() => { setSelectedStudentId(student._id); setShowStudentDropdown(false); setDashboard(null); }}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-sm font-semibold flex-shrink-0">
                             {student.name?.charAt(0)?.toUpperCase()}
                           </div>
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900">{student.name}</div>
-                            <div className="text-xs text-gray-500">
-                              Roll {student.rollNo} • Section {student.section}
-                            </div>
+                          <div>
+                            <div className="font-medium text-gray-900 text-sm">{student.name}</div>
+                            <div className="text-xs text-gray-500">Roll {student.rollNo} · Section {student.section}</div>
                           </div>
                         </button>
                       ))}
-                      {filteredStudents.length === 0 && (
-                        <div className="px-4 py-8 text-center text-gray-500 text-sm">
-                          No students found
-                        </div>
-                      )}
+                      {filteredStudents.length === 0 && <div className="px-4 py-6 text-center text-gray-400 text-sm">No students found</div>}
                     </div>
                   </div>
                 )}
               </div>
-              {/* Term Selection */}
+              {/* Terms — custom dropdown (needs checkboxes) */}
               <div className="relative">
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowTermDropdown(!showTermDropdown);
-                  }}
-                  className="flex items-center space-x-2 bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  onClick={(e) => { e.stopPropagation(); setShowTermDropdown(!showTermDropdown); setShowStudentDropdown(false); setShowExportDropdown(false); }}
+                  className="flex items-center gap-1.5 border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 whitespace-nowrap max-w-[200px]"
                 >
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    {selectedExamIds.length === 0
-                      ? 'Select Terms'
-                      : selectedExams.map((e) => e.examName).join(', ')
-                    }
-                  </span>
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                  <Calendar className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+                  <span className="truncate">{selectedExamIds.length === 0 ? 'Select Terms' : selectedExams.map((e) => e.examName).join(', ')}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                 </button>
-
                 {showTermDropdown && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-50" onClick={(e) => e.stopPropagation()}>
+                  <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-[999]" onClick={(e) => e.stopPropagation()}>
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-medium text-gray-900">Select Terms</h3>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (selectedExamIds.length === exams.length) {
-                              setSelectedExamIds([]);
-                            } else {
-                              setSelectedExamIds(exams.map(exam => exam._id));
-                            }
-                            setDashboard(null);
-                          }}
-                          className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                        >
+                        <h3 className="font-medium text-gray-900 text-sm">Select Terms</h3>
+                        <button onClick={(e) => { e.stopPropagation(); setSelectedExamIds(selectedExamIds.length === exams.length ? [] : exams.map((exam) => exam._id)); setDashboard(null); }}
+                          className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
                           {selectedExamIds.length === exams.length ? 'Clear All' : 'Select All'}
                         </button>
                       </div>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
                         {exams.map((exam) => (
-                          <label key={exam._id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={selectedExamIds.includes(exam._id)}
-                              onChange={() => toggleExam(exam._id)}
-                              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                            />
-                            <div className="flex-1">
+                          <label key={exam._id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                            <input type="checkbox" checked={selectedExamIds.includes(exam._id)} onChange={() => toggleExam(exam._id)}
+                              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
+                            <div>
                               <div className="font-medium text-gray-900 text-sm">{exam.examName}</div>
                               <div className="text-xs text-gray-500">{exam.academicYear}</div>
                             </div>
@@ -519,120 +385,54 @@ const EvaluationDashboard = () => {
                   </div>
                 )}
               </div>
-              {/* Display Mode Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowDisplayModeDropdown(!showDisplayModeDropdown);
-                  }}
-                  className="flex items-center space-x-2 bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-w-[140px]"
-                >
-                  <span>
-                    {displayModes.find(mode => mode.key === displayMode)?.label || 'Display Mode'}
-                  </span>
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
-                </button>
-
-                {showDisplayModeDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
-                    <div className="py-2">
-                      {displayModes.map((mode) => {
-                        const IconComponent = mode.icon;
-                        return (
-                          <button
-                            key={mode.key}
-                            onClick={() => {
-                              setDisplayMode(mode.key);
-                              setShowDisplayModeDropdown(false);
-                            }}
-                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm hover:bg-gray-50 focus:outline-none focus:bg-gray-50 ${
-                              displayMode === mode.key ? 'text-indigo-600 bg-indigo-50' : 'text-gray-700'
-                            }`}
-                          >
-                            <IconComponent className="h-4 w-4" />
-                            <span>{mode.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Display Mode — native select */}
+              <select
+                value={displayMode}
+                onChange={(e) => setDisplayMode(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              >
+                {displayModes.map((mode) => (
+                  <option key={mode.key} value={mode.key}>{mode.label}</option>
+                ))}
+              </select>
 
               {/* Font Size Controls */}
-              <div className="flex items-center space-x-2 bg-white border border-gray-300 rounded-xl p-1">
-                <button
-                  onClick={decreaseFontSize}
-                  disabled={fontSize === 'small'}
-                  className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Decrease font size"
-                >
-                  <MinusIcon className="h-4 w-4 text-gray-600" />
+              <div className="flex items-center gap-1 border border-gray-300 rounded-lg p-1">
+                <button onClick={decreaseFontSize} disabled={fontSize === 'small'} title="Smaller"
+                  className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <MinusIcon className="h-3.5 w-3.5 text-gray-600" />
                 </button>
-                <div className="flex items-center space-x-1 px-2">
-                  <Type className="h-4 w-4 text-gray-500" />
-                  <span className="text-xs font-medium text-gray-500 uppercase">
-                    {fontSize}
-                  </span>
-                </div>
-                <button
-                  onClick={increaseFontSize}
-                  disabled={fontSize === 'xlarge'}
-                  className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Increase font size"
-                >
-                  <Plus className="h-4 w-4 text-gray-600" />
+                <Type className="h-3.5 w-3.5 text-gray-400 mx-1" />
+                <button onClick={increaseFontSize} disabled={fontSize === 'xlarge'} title="Larger"
+                  className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <Plus className="h-3.5 w-3.5 text-gray-600" />
                 </button>
               </div>
 
-              {/* Generate Analysis Button */}
-              <button
-                onClick={generateAnalysis}
-                disabled={loading || !selectedStudent || selectedExamIds.length < 2}
-                className="flex items-center space-x-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2.5 rounded-xl font-medium text-sm hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span>Analyzing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap className="h-4 w-4" />
-                    <span>Generate Analysis</span>
-                  </>
-                )}
+              {/* Generate Button */}
+              <button onClick={generateAnalysis} disabled={loading || !selectedStudent || selectedExamIds.length < 2}
+                className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+                {loading ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /><span>Analyzing...</span></> : <><Zap className="h-3.5 w-3.5" /><span>Generate</span></>}
               </button>
 
-              {/* Export Dropdown */}
+              {/* Export — custom dropdown */}
               <div className="relative">
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowExportDropdown(!showExportDropdown);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); setShowExportDropdown(!showExportDropdown); setShowStudentDropdown(false); setShowTermDropdown(false); }}
                   disabled={!dashboard}
-                  className="flex items-center space-x-2 bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Download className="h-4 w-4" />
-                  <span>Export</span>
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                  <Download className="h-3.5 w-3.5" /><span>Export</span><ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                 </button>
-
                 {showExportDropdown && dashboard && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+                  <div className="absolute top-full right-0 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-xl z-[999]">
                     <div className="py-2">
                       {exportOptions.map((option) => {
                         const IconComponent = option.icon;
                         return (
-                          <button
-                            key={option.key}
-                            onClick={() => handleExport(option.key)}
-                            className="w-full flex items-center space-x-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
-                          >
-                            <IconComponent className="h-4 w-4" />
-                            <span>{option.label}</span>
+                          <button key={option.key} onClick={() => handleExport(option.key)}
+                            className="w-full flex items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                            <IconComponent className="h-4 w-4" /><span>{option.label}</span>
                           </button>
                         );
                       })}
@@ -640,7 +440,7 @@ const EvaluationDashboard = () => {
                   </div>
                 )}
               </div>
-            </div>
+
           </div>
         </div>
         {/* Tab Navigation */}

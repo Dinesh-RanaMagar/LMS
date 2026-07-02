@@ -92,11 +92,8 @@ const Navbar = () => {
               Welcome, <span className="font-semibold">{admin?.name}</span>
             </p>
             <button
-              onClick={() => {
-                handleLogout();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition text-sm"
+              onClick={handleLogout}
+              className="w-full mt-2 flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
             >
               <LogOut size={18} />
               <span>Logout</span>
@@ -104,20 +101,6 @@ const Navbar = () => {
           </div>
         </div>
       )}
-    </nav>
-  );
-};
-
-export default Navbar;
-                className="w-full mt-2 flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
-              >
-                <LogOut size={18} />
-                <span>Logout</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </nav>
   );
 };

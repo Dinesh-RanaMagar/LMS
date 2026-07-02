@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { academicYearAPI, classAPI, studentAPI } from '../services/api';
 import Layout from '../components/Layout';
-import { Edit2, Trash2, Plus, Search, Users, X, Upload } from 'lucide-react';
+import { Trash2, Plus, Search, Users, X, Upload } from 'lucide-react';
 
 const Students = () => {
   const navigate = useNavigate();
@@ -19,9 +19,6 @@ const Students = () => {
   const [filterSection, setFilterSection] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  useEffect(() => { fetchData(); }, [selectedAcademicYear]);
-  useEffect(() => { filterStudents(); }, [students, searchTerm, filterClass, filterSection]);
-
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -36,6 +33,7 @@ const Students = () => {
       setActiveAcademicYear(studentResponse.data?.activeAcademicYear || '');
       setSelectedAcademicYear((current) => current || studentResponse.data?.selectedAcademicYear || studentResponse.data?.activeAcademicYear || '');
     } catch (err) {
+      console.error(err);
       setError('Failed to fetch student data');
     } finally {
       setLoading(false);
@@ -62,6 +60,9 @@ const Students = () => {
     if (filterSection) filtered = filtered.filter((s) => s.section === filterSection);
     setFilteredStudents(filtered);
   };
+
+  useEffect(() => { fetchData(); }, [selectedAcademicYear]);
+  useEffect(() => { filterStudents(); }, [students, searchTerm, filterClass, filterSection]);
 
   const handleDelete = async (id) => {
     try {
@@ -257,7 +258,7 @@ const Students = () => {
                       {/* Additional Info */}
                       <div className="space-y-2 mb-4">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Father's Name:</span>
+                          <span className="text-gray-500">Father&apos;s Name:</span>
                           <span className="font-medium text-gray-700">{student.fatherName || '—'}</span>
                         </div>
                       </div>

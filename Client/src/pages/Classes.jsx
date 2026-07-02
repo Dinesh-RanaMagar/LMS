@@ -49,10 +49,6 @@ function ClassesSubjects() {
   const [selectedClassFilter, setSelectedClassFilter] = useState("");
   const [sectionFilter, setSectionFilter] = useState("");
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
     setError('');
 
@@ -80,6 +76,10 @@ function ClassesSubjects() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const resetClassForm = () => {
     setEditingClass(null);

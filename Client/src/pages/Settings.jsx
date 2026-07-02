@@ -28,16 +28,16 @@ const defaultSettings = {
 };
 
 const Settings = () => {
-  const [form, setForm] = useState(defaultSettings);
+  const { settings, setSettings } = useSettings();
+  const [form, setForm] = useState({ ...defaultSettings, ...settings });
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState('');
   const [error, setError] = useState('');
-  const { settings, setSettings, refreshSettings } = useSettings();
 
   useEffect(() => {
-    if (settings) {
-      setForm({ ...defaultSettings, ...settings });
+    if (settings && Object.keys(settings).length > 0) {
+      setForm((prev) => ({ ...defaultSettings, ...prev, ...settings }));
     }
   }, [settings]);
 
@@ -94,7 +94,7 @@ const Settings = () => {
               </div>
               <div>
                 <h1 className="text-4xl font-black">School Settings</h1>
-                <p className="text-slate-300 text-lg">Configure your school's identity and preferences</p>
+                <p className="text-slate-300 text-lg">Configure your school&apos;s identity and preferences</p>
               </div>
             </div>
             <div className="flex flex-col gap-4 mt-6 sm:flex-row sm:items-center">
