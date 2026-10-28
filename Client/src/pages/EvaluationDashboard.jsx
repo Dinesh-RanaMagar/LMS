@@ -63,6 +63,9 @@ const getDisplayValue = (item, mode, markComponent = 'whole') => {
   return '—';
 };
 
+const getRawValue = (item, markComponent = 'whole') =>
+  item ? (markComponent === 'theory' ? item.theoryRaw : item.raw) ?? null : null;
+
 const getComponentResult = (item, markComponent = 'whole') =>
   markComponent === 'theory' ? item?.theoryResult : item?.result;
 
@@ -938,7 +941,7 @@ const EvaluationDashboard = () => {
                         </th>
                       ))}
                       <th className={`px-3 py-3 text-left ${fs.tableHeader} font-bold uppercase tracking-wider text-gray-500`}>
-                        Total ({displayModes.find((m) => m.key === displayMode)?.label})
+                        {displayMode === 'raw' ? 'Change' : 'Total'} ({displayModes.find((m) => m.key === displayMode)?.label})
                       </th>
                     </tr>
                   </thead>
@@ -948,6 +951,10 @@ const EvaluationDashboard = () => {
                       const change     = getChangeIndicator((markComponent === 'theory' ? subject.theoryChange : subject.change) || 0);
                       const ChangeIcon = change.icon;
                       const isSubjectFailed = subject.stats.some((s) => getComponentResult(s, markComponent) === 'Fail');
+                      const validStats = subject.stats.filter(Boolean);
+                      const lastRaw    = getRawValue(validStats[validStats.length - 1], markComponent);
+                      const prevRaw    = getRawValue(validStats[validStats.length - 2], markComponent);
+                      const rawDiff    = lastRaw != null && prevRaw != null ? lastRaw - prevRaw : null;
 
                       return (
                         <tr
@@ -994,12 +1001,18 @@ const EvaluationDashboard = () => {
                             );
                           })}
 
-                          {/* Total (mode-aware) + trend */}
+                          {/* Raw-mark change (raw mode) / latest value (other modes) + trend */}
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-2">
-                              <span className={`${fs.marks} font-black tabular-nums ${isSubjectFailed ? 'text-red-700' : 'text-gray-900'}`}>
-                                {getDisplayValue(latestStat, displayMode, markComponent)}
-                              </span>
+                              {displayMode === 'raw' ? (
+                                <span className={`${fs.marks} font-black tabular-nums ${rawDiff == null ? 'text-gray-400' : rawDiff > 0 ? 'text-emerald-600' : rawDiff < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                                  {rawDiff == null ? '—' : `${rawDiff > 0 ? '+' : ''}${rawDiff}`}
+                                </span>
+                              ) : (
+                                <span className={`${fs.marks} font-black tabular-nums ${isSubjectFailed ? 'text-red-700' : 'text-gray-900'}`}>
+                                  {getDisplayValue(latestStat, displayMode, markComponent)}
+                                </span>
+                              )}
                               <span className={`inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full ring-1 ${change.bg} ${change.ring}`}>
                                 <ChangeIcon className={`h-3 w-3 ${change.color}`} />
                               </span>
