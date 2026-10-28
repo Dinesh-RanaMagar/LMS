@@ -69,7 +69,7 @@ const Students = () => {
       await studentAPI.delete(id);
       setStudents(students.filter((s) => s._id !== id));
       setDeleteConfirm(null);
-    } catch (err) {
+    } catch {
       setError('Failed to delete student');
     }
   };

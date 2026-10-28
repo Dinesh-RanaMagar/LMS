@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { examAPI, subjectAPI } from "../services/api";
+import { examAPI } from "../services/api";
 import Layout from "../components/Layout";
 import { ArrowLeft, Layers, Check, AlertCircle, Plus, Trash2 } from "lucide-react";
 
@@ -14,10 +14,8 @@ const ic = "w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-n
 
 const BulkCreateExam = () => {
   const navigate = useNavigate();
-  const [allSubjects, setAllSubjects] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   const [form, setForm] = useState({
     examName: "",
@@ -30,10 +28,6 @@ const BulkCreateExam = () => {
     isFinalExam: false,
     description: "",
   });
-
-  useEffect(() => {
-    subjectAPI.getAll().then(r => setAllSubjects(r.data.subjects || [])).catch(() => {});
-  }, []);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 

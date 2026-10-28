@@ -18,7 +18,6 @@ function Promotions() {
     remarks: '',
   });
   const [filterAcademicYear, setFilterAcademicYear] = useState('');
-  const [activeAcademicYear, setActiveAcademicYear] = useState(null);
 
   const fetchStudents = async () => {
     if (!filterAcademicYear) return;
@@ -47,7 +46,6 @@ function Promotions() {
       const years = yearsRes.data?.academicYears || yearsRes.data || [];
       setAcademicYears(years);
       const activeYear = years.find(y => y.isActive);
-      setActiveAcademicYear(activeYear);
       if (activeYear) {
         setFilterAcademicYear(activeYear._id);
       }

@@ -154,7 +154,7 @@ function AcademicYears() {
             <div className="absolute left-8 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 via-pink-400 to-indigo-400 rounded-full"></div>
             
             <div className="space-y-8">
-              {academicYears.map((year, index) => (
+              {academicYears.map((year) => (
                 <div key={year._id} className="relative flex items-start gap-8">
                   {/* Timeline Node */}
                   <div className={`relative z-10 w-16 h-16 rounded-full flex items-center justify-center shadow-2xl ${

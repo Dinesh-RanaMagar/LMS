@@ -4,8 +4,6 @@ import Layout from '../components/Layout';
 import { settingsAPI } from '../services/api';
 import { useSettings } from '../context/SettingsContext';
 
-const inputClass = 'w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm bg-slate-50 focus:bg-white';
-
 const defaultSettings = {
   schoolName: '',
   schoolCode: '',

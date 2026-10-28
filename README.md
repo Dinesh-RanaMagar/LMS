@@ -37,59 +37,28 @@ A complete admin-only school management system built with MongoDB, Express, Reac
 ## Project Structure
 
 ```
-school-management/
-├── Server/
-│   ├── config/
-│   │   └── db.js
-│   ├── controller/
-│   │   ├── adminController.js
-│   │   ├── studentController.js
-│   │   ├── examController.js
-│   │   └── marksheetController.js
-│   ├── Middleware/
-│   │   └── auth.js
-│   ├── model/
-│   │   ├── adminModel.js
-│   │   ├── StudentModel.js
-│   │   ├── examModel.js
-│   │   └── MarksheetModel.js
-│   ├── route/
-│   │   ├── adminRoute.js
-│   │   ├── studentRoute.js
-│   │   ├── examRoute.js
-│   │   └── marksheetRoute.js
-│   ├── app.js
-│   ├── index.js
-│   ├── .env
-│   └── package.json
-│
-└── Client/
-    ├── src/
-    │   ├── components/
-    │   │   ├── Navbar.jsx
-    │   │   └── ProtectedRoute.jsx
-    │   ├── context/
-    │   │   └── AuthContext.jsx
-    │   ├── pages/
-    │   │   ├── Login.jsx
-    │   │   ├── Register.jsx
-    │   │   ├── Dashboard.jsx
-    │   │   ├── Students.jsx
-    │   │   ├── AddEditStudent.jsx
-    │   │   ├── Exams.jsx
-    │   │   ├── AddEditExam.jsx
-    │   │   ├── MarksEntry.jsx
-    │   │   └── Marksheets.jsx
-    │   ├── services/
-    │   │   └── api.js
-    │   ├── App.jsx
-    │   ├── main.jsx
-    │   └── index.css
-    ├── index.html
-    ├── vite.config.js
-    ├── tailwind.config.js
-    ├── postcss.config.js
-    ├── .env
+LMS/
+├── Client/
+│   ├── src/
+│   │   ├── components/   # Application shell, protected routes, notifications, workspace tabs
+│   │   ├── context/      # Authentication, settings, academic year, and workspace state
+│   │   ├── pages/        # Management pages, marksheets, evaluation, and reports
+│   │   ├── services/     # Backend API client
+│   │   ├── utils/        # Export and formatting helpers
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── package.json
+│   └── Vite/Tailwind configuration
+└── Server/
+    ├── config/           # MongoDB connection
+    ├── controller/       # API and business logic
+    ├── Middleware/       # Authentication
+    ├── model/            # MongoDB schemas and indexes
+    ├── route/            # Express API routes
+    ├── test/             # Unit and import tests
+    ├── utils/            # Import, grading, and migration helpers
+    ├── app.js
+    ├── index.js
     └── package.json
 ```
 
@@ -143,7 +112,7 @@ cd Server
 npm run seed:classes
 ```
 
-This command resets and creates:
+This command creates or updates the configured classes and sections:
 
 - **Nursery**
 - **KG**

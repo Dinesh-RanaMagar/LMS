@@ -11,7 +11,6 @@ import {
   Trash2,
   BookOpen,
   AlertCircle,
-  Calendar,
 } from "lucide-react";
 
 const EXAM_TYPES = [
@@ -119,7 +118,7 @@ const NavButtons = ({ step, totalSteps, onBack, onNext, onSubmit, submitting }) 
 
 const CreateExam = () => {
   const navigate = useNavigate();
-  const { activeYear, loading: activeYearLoading } = useAcademicYear();
+  const { activeYear } = useAcademicYear();
 
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");

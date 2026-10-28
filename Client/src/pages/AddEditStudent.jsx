@@ -121,7 +121,7 @@ const AddEditStudent = () => {
       const response = await classAPI.getAll();
       const classList = response.data?.classes || response.data || [];
       setClasses(classList);
-    } catch (err) {
+    } catch {
       setError('Failed to load classes');
     } finally {
       setLoadingClasses(false);
@@ -150,7 +150,7 @@ const AddEditStudent = () => {
         gender: student.gender || '',
         legacyDetails: student.legacyDetails || {},
       });
-    } catch (err) {
+    } catch {
       setError('Failed to load student data');
     } finally {
       setLoading(false);

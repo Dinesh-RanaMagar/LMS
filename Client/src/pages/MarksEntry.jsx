@@ -117,7 +117,7 @@ const MarksEntry = () => {
       );
       setMarks(uniqueSubjects.map(toMarkItem));
       if (!selectedClass) setSelectedClass(exam.applicableClasses?.[0] || '');
-    } catch (err) {
+    } catch {
       setError('Failed to fetch exam details');
     } finally {
       setLoading(false);

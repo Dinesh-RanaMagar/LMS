@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { examAPI } from "../services/api";
 import Layout from "../components/Layout";
-import { ArrowLeft, Edit2, Lock, Unlock, Trash2, CheckCircle, Clock, Users, BookOpen, AlertCircle, Calendar } from "lucide-react";
+import { ArrowLeft, Edit2, Lock, Unlock, Trash2, CheckCircle } from "lucide-react";
 
 const STATUS_CONFIG = {
   draft:     { label: "Draft",     color: "bg-gray-100 text-gray-600",   dot: "bg-gray-400" },
