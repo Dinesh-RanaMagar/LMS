@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search, ChevronDown, Download, FileText, Printer, BarChart3,
   Award, Target, User, Calendar, Hash,
-  ArrowUp, ArrowDown, Minus, Zap, RefreshCw, CheckCircle2,
+  ArrowUp, ArrowDown, Minus, Zap, RefreshCw, CheckCircle2, ArrowUpDown,
   LineChart, Activity, AlertTriangle, Trophy,
   Plus, Minus as MinusIcon, Type, Maximize2, Minimize2,
   BookOpen, TrendingUp, TrendingDown, Sparkles, ChevronRight,
@@ -45,6 +45,9 @@ const CHART_COLORS = [
   { bar: 'bg-rose-500',    hex: '#f43f5e' },
 ];
 
+// Saved subject order for the marksheet table (list of subject names)
+const SUBJECT_ORDER_KEY = 'evaluation:subjectOrder';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const getDisplayValue = (item, mode, markComponent = 'whole') => {
@@ -63,8 +66,24 @@ const getDisplayValue = (item, mode, markComponent = 'whole') => {
   return '—';
 };
 
-const getRawValue = (item, markComponent = 'whole') =>
-  item ? (markComponent === 'theory' ? item.theoryRaw : item.raw) ?? null : null;
+// Numeric value behind the "Change" column (raw, percentage and GPA modes)
+const getNumericValue = (item, mode, markComponent = 'whole') => {
+  if (!item) return null;
+  const theory = markComponent === 'theory';
+  if (mode === 'raw')        return (theory ? item.theoryRaw : item.raw) ?? null;
+  if (mode === 'percentage') return (theory ? item.theoryPercentage : item.percentage) ?? null;
+  if (mode === 'gpa')        return (theory ? item.theoryGpa : item.gpa) ?? null;
+  return null;
+};
+
+const formatChangeValue = (value, mode) => {
+  if (value == null) return '—';
+  if (mode === 'percentage' || mode === 'gpa') {
+    const rounded = Number(value.toFixed(2));
+    return `${rounded > 0 ? '+' : ''}${formatDecimal(rounded)}${mode === 'percentage' ? '%' : ''}`;
+  }
+  return `${value > 0 ? '+' : ''}${value}`;
+};
 
 const getComponentResult = (item, markComponent = 'whole') =>
   markComponent === 'theory' ? item?.theoryResult : item?.result;
@@ -366,6 +385,15 @@ const EvaluationDashboard = () => {
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [showTermDropdown,    setShowTermDropdown]    = useState(false);
   const [showExportDropdown,  setShowExportDropdown]  = useState(false);
+  const [subjectOrder,        setSubjectOrder]        = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SUBJECT_ORDER_KEY) || '[]');
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isArranging,         setIsArranging]         = useState(false);
 
   const fs = fontSizes[fontSize];
 
@@ -379,6 +407,14 @@ const EvaluationDashboard = () => {
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SUBJECT_ORDER_KEY, JSON.stringify(subjectOrder));
+    } catch {
+      // Storage unavailable — the custom order just won't persist.
+    }
+  }, [subjectOrder]);
 
   useEffect(() => {
     const sync = () => setIsFullscreen(document.fullscreenElement === evaluationRef.current);
@@ -496,6 +532,26 @@ const EvaluationDashboard = () => {
   // ── Shorthand dashboard data ───────────────────────────────────────────────
   const latestAvg    = dashboard?.summary?.averages?.[dashboard.summary.averages.length - 1];
   const improvement  = dashboard?.summary?.improvement;
+
+  // Subjects in the saved order, with any subject not in the saved list appended
+  const orderedSubjects = useMemo(() => {
+    const subjects = dashboard?.subjects || [];
+    const byName = new Map(subjects.map((s) => [s.subject, s]));
+    const ordered = subjectOrder.map((name) => byName.get(name)).filter(Boolean);
+    const seen = new Set(ordered.map((s) => s.subject));
+    return [...ordered, ...subjects.filter((s) => !seen.has(s.subject))];
+  }, [dashboard, subjectOrder]);
+
+  const moveSubject = (index, direction) => {
+    const names = orderedSubjects.map((s) => s.subject);
+    const target = index + direction;
+    if (target < 0 || target >= names.length) return;
+    const next = [...names];
+    [next[index], next[target]] = [next[target], next[index]];
+    setSubjectOrder(next);
+  };
+
+  const resetSubjectOrder = () => setSubjectOrder([]);
 
   // ══════════════════════════════════════════════════════════════════════════
   return (
@@ -917,6 +973,29 @@ const EvaluationDashboard = () => {
                   <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-600 border border-violet-100">
                     {markComponents.find((component) => component.key === markComponent)?.label}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsArranging((v) => !v)}
+                    title="Reorder the subjects shown in this table"
+                    className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                      isArranging
+                        ? 'border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                    {isArranging ? 'Done' : 'Arrange'}
+                  </button>
+                  {isArranging && (
+                    <button
+                      type="button"
+                      onClick={resetSubjectOrder}
+                      title="Reset to the default subject order"
+                      className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition"
+                    >
+                      Reset
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -941,20 +1020,20 @@ const EvaluationDashboard = () => {
                         </th>
                       ))}
                       <th className={`px-3 py-3 text-left ${fs.tableHeader} font-bold uppercase tracking-wider text-gray-500`}>
-                        {displayMode === 'raw' ? 'Change' : 'Total'} ({displayModes.find((m) => m.key === displayMode)?.label})
+                        {displayMode !== 'grade' ? 'Change' : 'Total'} ({displayModes.find((m) => m.key === displayMode)?.label})
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {dashboard.subjects.map((subject, index) => {
+                    {orderedSubjects.map((subject, index) => {
                       const latestStat = subject.stats[subject.stats.length - 1];
                       const change     = getChangeIndicator((markComponent === 'theory' ? subject.theoryChange : subject.change) || 0);
                       const ChangeIcon = change.icon;
                       const isSubjectFailed = subject.stats.some((s) => getComponentResult(s, markComponent) === 'Fail');
                       const validStats = subject.stats.filter(Boolean);
-                      const lastRaw    = getRawValue(validStats[validStats.length - 1], markComponent);
-                      const prevRaw    = getRawValue(validStats[validStats.length - 2], markComponent);
-                      const rawDiff    = lastRaw != null && prevRaw != null ? lastRaw - prevRaw : null;
+                      const lastValue  = getNumericValue(validStats[validStats.length - 1], displayMode, markComponent);
+                      const prevValue  = getNumericValue(validStats[validStats.length - 2], displayMode, markComponent);
+                      const changeDiff = lastValue != null && prevValue != null ? lastValue - prevValue : null;
 
                       return (
                         <tr
@@ -968,6 +1047,28 @@ const EvaluationDashboard = () => {
                           {/* Subject name */}
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2.5 min-w-0">
+                              {isArranging && (
+                                <div className="flex flex-shrink-0 flex-col gap-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => moveSubject(index, -1)}
+                                    disabled={index === 0}
+                                    title="Move subject up"
+                                    className="flex h-5 w-5 items-center justify-center rounded border border-gray-200 bg-white text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                  >
+                                    <ArrowUp className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => moveSubject(index, 1)}
+                                    disabled={index === orderedSubjects.length - 1}
+                                    title="Move subject down"
+                                    className="flex h-5 w-5 items-center justify-center rounded border border-gray-200 bg-white text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                  >
+                                    <ArrowDown className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              )}
                               <div className={`hidden sm:flex flex-shrink-0 ${fs.iconSize} items-center justify-center rounded-xl text-white ${fs.iconText} font-black shadow-sm ${isSubjectFailed ? 'bg-gradient-to-br from-red-400 to-red-600' : 'bg-gradient-to-br from-indigo-500 to-purple-600'}`}>
                                 {subject.subject.charAt(0)}
                               </div>
@@ -1001,12 +1102,12 @@ const EvaluationDashboard = () => {
                             );
                           })}
 
-                          {/* Raw-mark change (raw mode) / latest value (other modes) + trend */}
+                          {/* Change (raw / percentage / GPA) / latest value (grade) + trend */}
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-2">
-                              {displayMode === 'raw' ? (
-                                <span className={`${fs.marks} font-black tabular-nums ${rawDiff == null ? 'text-gray-400' : rawDiff > 0 ? 'text-emerald-600' : rawDiff < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                                  {rawDiff == null ? '—' : `${rawDiff > 0 ? '+' : ''}${rawDiff}`}
+                              {displayMode !== 'grade' ? (
+                                <span className={`${fs.marks} font-black tabular-nums ${changeDiff == null ? 'text-gray-400' : changeDiff > 0 ? 'text-emerald-600' : changeDiff < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                                  {formatChangeValue(changeDiff, displayMode)}
                                 </span>
                               ) : (
                                 <span className={`${fs.marks} font-black tabular-nums ${isSubjectFailed ? 'text-red-700' : 'text-gray-900'}`}>
