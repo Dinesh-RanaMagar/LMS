@@ -212,18 +212,18 @@ const GpaTrendChart = ({ averages }) => {
 
   if (!validData) {
     return (
-      <p className="flex h-48 items-center justify-center text-sm text-gray-400">
+      <p className="flex h-32 items-center justify-center text-sm text-gray-400">
         No GPA data available for these exams.
       </p>
     );
   }
 
   const W      = 480;
-  const H      = 180;
+  const H      = 132;
   const left   = 44;
   const right  = W - 20;
   const top    = 16;
-  const bottom = 138;
+  const bottom = 104;
   const plotW  = right - left;
   const plotH  = bottom - top;
 
@@ -1215,7 +1215,7 @@ const EvaluationDashboard = () => {
                   {/* Card header */}
                   <div className="flex items-center justify-between px-4 pt-3 pb-3 border-b border-gray-50">
                     <div>
-                      <h3 className="text-sm font-bold text-gray-800">GPA Trend</h3>
+                      <h3 className="text-sm font-bold text-gray-800">Exam Overview</h3>
                       <p className="text-xs text-gray-400 mt-0.5">Performance across selected exams</p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1226,16 +1226,8 @@ const EvaluationDashboard = () => {
                     </div>
                   </div>
 
-                  {/* Chart */}
-                  <div className="px-4 py-3">
-                    <GpaTrendChart averages={dashboard.summary?.averages} />
-                  </div>
-
-                  {/* Divider */}
-                  <div className="border-t border-gray-100" />
-
                   {/* Exam-by-exam table */}
-                  <table className="w-full text-sm">
+                  <table className="w-full text-[15px] [&_th]:py-3 [&_td]:py-3">
                     <thead>
                       <tr className="bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500">
                         <th className="px-4 py-2.5 text-left">Exam</th>
@@ -1294,6 +1286,15 @@ const EvaluationDashboard = () => {
                       })}
                     </tbody>
                   </table>
+
+                  {/* GPA Trend chart */}
+                  <div className="border-t border-gray-100 px-4 py-2">
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <LineChart className="h-3.5 w-3.5 text-indigo-500" />
+                      <h4 className="text-xs font-bold uppercase tracking-wide text-gray-500">GPA Trend</h4>
+                    </div>
+                    <GpaTrendChart averages={dashboard.summary?.averages} />
+                  </div>
                 </div>
 
                 {/* Subject Performance */}
