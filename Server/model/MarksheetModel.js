@@ -34,6 +34,30 @@ const marksheetSchema = new mongoose.Schema({
                 default: 0,
                 min: 0
             },
+            hasPractical: {
+                type: Boolean,
+                default: false
+            },
+            theoryFullMarks: {
+                type: Number,
+                default: 0,
+                min: 0
+            },
+            theoryPassMarks: {
+                type: Number,
+                default: 0,
+                min: 0
+            },
+            practicalFullMarks: {
+                type: Number,
+                default: 0,
+                min: 0
+            },
+            practicalPassMarks: {
+                type: Number,
+                default: 0,
+                min: 0
+            },
             fullMarks: {
                 type: Number,
                 required: true

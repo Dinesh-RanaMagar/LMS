@@ -107,7 +107,7 @@ const Students = () => {
                   className="flex items-center justify-center gap-2 bg-white/20 backdrop-blur-sm text-white px-6 py-3 rounded-2xl hover:bg-white/30 transition font-medium border border-white/30"
                 >
                   <Upload size={20} />
-                  Import Excel
+                  Bulk Registration (CSV / Excel)
                 </button>
                 <button
                   onClick={() => navigate('/students/add')}
@@ -317,4 +317,3 @@ const Students = () => {
 };
 
 export default Students;
-

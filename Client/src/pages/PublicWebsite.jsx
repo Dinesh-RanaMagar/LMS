@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Award, BookOpen, CalendarDays, CheckCircle, GraduationCap, Image, Mail, MapPin, Phone, ShieldCheck, UserCheck, Users } from 'lucide-react';
+import { Award, BookOpen, CalendarDays, CheckCircle, GraduationCap, Image, Mail, MapPin, Menu, Phone, ShieldCheck, UserCheck, Users, X } from 'lucide-react';
 import { settingsAPI } from '../services/api';
 
 const getImageUrl = (url) => {
@@ -11,6 +11,7 @@ const getImageUrl = (url) => {
 
 const PublicWebsite = () => {
   const [settings, setSettings] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { pathname } = useLocation();
 
   useEffect(() => {
@@ -99,8 +100,43 @@ const PublicWebsite = () => {
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3"><div className="w-11 h-11 rounded-2xl bg-blue-800 text-white flex items-center justify-center overflow-hidden">{settings?.logoUrl ? <img src={getImageUrl(settings.logoUrl)} alt="School logo" className="w-9 h-9 object-contain bg-white rounded-xl" /> : <GraduationCap />}</div><div><h1 className="font-bold text-lg">{schoolName}</h1><p className="text-xs text-slate-500">{settings?.slogan || 'Quality Education, Smart Management'}</p></div></Link>
-          <nav className="hidden lg:flex items-center gap-5 text-sm font-medium">{navLinks.map((link) => <Link key={link.to} to={link.to} className={pathname === link.to ? 'text-blue-800 font-bold' : 'text-slate-600 hover:text-blue-800'}>{link.label}</Link>)}<Link to="/login" className="px-4 py-2 rounded-xl bg-blue-800 text-white">Admin Login</Link></nav>
+          <nav className="hidden lg:flex items-center gap-5 text-sm font-medium">{navLinks.map((link) => <Link key={link.to} to={link.to} className={pathname === link.to ? 'text-blue-800 font-bold' : 'text-slate-600 hover:text-blue-800'}>{link.label}</Link>)}<Link to="/login" className="px-4 py-2 rounded-xl bg-blue-800 text-white">Login</Link></nav>
+          <button
+            type="button"
+            className="lg:hidden p-2 rounded-lg text-slate-700 hover:bg-slate-100"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="public-mobile-navigation"
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
+        {mobileMenuOpen && (
+          <nav id="public-mobile-navigation" className="lg:hidden border-t border-slate-100 bg-white px-4 py-3">
+            <div className="mx-auto max-w-7xl space-y-1">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block rounded-lg px-3 py-2 text-sm ${
+                    pathname === link.to ? 'bg-blue-50 font-bold text-blue-800' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="mt-2 block rounded-xl bg-blue-800 px-4 py-2 text-center text-sm font-medium text-white"
+              >
+                Login
+              </Link>
+            </div>
+          </nav>
+        )}
       </header>
       {currentPage ? (
         <main>

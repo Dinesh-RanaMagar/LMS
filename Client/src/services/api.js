@@ -15,7 +15,31 @@ apiClient.interceptors.request.use((config) => {
 });
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = response.config.method?.toLowerCase();
+    const requestUrl = response.config.url || '';
+    const isMutation = ['post', 'put', 'patch', 'delete'].includes(method);
+    const isNonMutationRequest = /\/admin\/(login|register|logout)$/.test(requestUrl)
+      || /\/import-preview$/.test(requestUrl)
+      || /\/evaluation\/compare$/.test(requestUrl);
+
+    if (isMutation && !isNonMutationRequest) {
+      const payload = response.data;
+      const type = payload?.success === false ? 'warning' : 'success';
+      const message = payload?.message || (
+        method === 'delete'
+          ? 'Deleted successfully.'
+          : method === 'post'
+            ? 'Created successfully.'
+            : 'Changes saved successfully.'
+      );
+      window.dispatchEvent(new CustomEvent('app:notification', {
+        detail: { message, type },
+      }));
+    }
+
+    return response;
+  },
   (error) => {
     const isLoginRequest = error.config?.url?.endsWith('/admin/login');
     if (error.response?.status === 401 && !isLoginRequest) {
@@ -59,6 +83,9 @@ export const studentAPI = {
   getById: (id) => apiClient.get(`/students/${id}`),
   update: (id, data) => apiClient.put(`/students/${id}`, data),
   delete: (id) => apiClient.delete(`/students/${id}`),
+  previewImport: (formData) => apiClient.post('/students/import-preview', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   importExcel: (formData) => apiClient.post('/students/import-excel', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
@@ -84,6 +111,7 @@ export const examAPI = {
   // CRUD
   create:      (data)     => apiClient.post('/exams', data),
   createBulk:  (data)     => apiClient.post('/exams/create-bulk', data),
+  copy:        (id, examName) => apiClient.post(`/exams/${id}/copy`, { examName }),
   getAll:      (params)   => apiClient.get('/exams', { params }),
   getById:     (id)       => apiClient.get(`/exams/${id}`),
   update:      (id, data) => apiClient.put(`/exams/${id}`, data),
@@ -97,10 +125,18 @@ export const examAPI = {
 
 export const marksheetAPI = {
   create: (data) => apiClient.post('/marksheets', data),
+  previewImport: (formData) => apiClient.post('/marksheets/import-preview', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  importExcel: (formData) => apiClient.post('/marksheets/import-excel', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   getAll: (params) => apiClient.get('/marksheets', { params }),
   getById: (id) => apiClient.get(`/marksheets/${id}`),
-  getByStudentExam: (studentId, examId) =>
-    apiClient.get(`/marksheets/student/${studentId}/exam/${examId}`),
+  getByStudentExam: (studentId, examId, includeUnpublished = false) =>
+    apiClient.get(`/marksheets/student/${studentId}/exam/${examId}`, {
+      params: includeUnpublished ? { includeUnpublished: true } : undefined,
+    }),
   update: (id, data) => apiClient.put(`/marksheets/${id}`, data),
   delete: (id) => apiClient.delete(`/marksheets/${id}`),
 };
@@ -135,6 +171,12 @@ export const noticeAPI = {
 export const attendanceAPI = {
   save: (data) => apiClient.post('/attendance', data),
   getAll: (params) => apiClient.get('/attendance', { params }),
+  getSummary: (params) => apiClient.get('/attendance/summary', { params }),
+  saveSummary: (data) => apiClient.post('/attendance/summary', data),
+  downloadSummaryTemplate: (params) => apiClient.get('/attendance/summary/template', { params, responseType: 'blob' }),
+  importSummaryExcel: (formData) => apiClient.post('/attendance/summary/import-excel', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   delete: (id) => apiClient.delete(`/attendance/${id}`),
 };
 

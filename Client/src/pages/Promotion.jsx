@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { GraduationCap, CheckCircle, XCircle, UserCheck, AlertCircle } from "lucide-react";
 import Layout from "../components/Layout";
 import { promotionAPI, academicYearAPI } from "../services/api";
+import { formatDecimal } from "../utils/numberFormat";
 
 const Promotion = () => {
     const [eligibleStudents, setEligibleStudents] = useState([]);
@@ -267,7 +268,7 @@ const Promotion = () => {
                                             <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
                                                 <span>Exam: {item.exam}</span>
                                                 <span>Grade: {item.marksheet.grade}</span>
-                                                <span>GPA: {item.marksheet.gpa}</span>
+                                                <span>GPA: {formatDecimal(item.marksheet.gpa, 'N/A')}</span>
                                                 <span className={item.marksheet.result === 'Fail' ? 'text-yellow-600 font-medium' : 'text-green-600 font-medium'}>
                                                     Target Class: {item.nextClass}
                                                 </span>

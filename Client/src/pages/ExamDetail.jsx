@@ -183,7 +183,11 @@ const ExamDetail = () => {
                       {(cfg.subjects || []).map((s, j) => (
                         <div key={j} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
                           <span className="font-medium text-gray-700">{s.subjectName}</span>
-                          <span className="text-gray-400">FM:{s.fullMarks} PM:{s.passMarks}</span>
+                          <span className="text-right text-gray-400">
+                            {s.hasPractical
+                              ? `TH ${s.theoryFullMarks}/${s.theoryPassMarks} · PR ${s.practicalFullMarks}/${s.practicalPassMarks}`
+                              : `Full ${s.fullMarks} · Pass ${s.passMarks}`}
+                          </span>
                         </div>
                       ))}
                     </div>

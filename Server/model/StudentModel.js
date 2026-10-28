@@ -7,6 +7,10 @@ const studentSchema = new mongoose.Schema({
         trim: true
     },
     dob: Date,
+    dobBs: {
+        type: String,
+        trim: true
+    },
     gender: {
         type: String,
         enum: ["Male", "Female", "Other", ""],
@@ -52,6 +56,11 @@ const studentSchema = new mongoose.Schema({
     address: {
         type: String,
         trim: true
+    },
+    legacyDetails: {
+        type: Map,
+        of: String,
+        default: () => new Map()
     },
     // Store each academic year record inside the student model
     academicRecords: [{

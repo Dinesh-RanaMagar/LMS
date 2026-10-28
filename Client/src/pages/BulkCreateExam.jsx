@@ -42,11 +42,23 @@ const BulkCreateExam = () => {
     set("allClassNames", cur.includes(cls) ? cur.filter(c => c !== cls) : [...cur, cls]);
   };
 
-  const addCustomSubject = () => set("subjects", [...form.subjects, { subjectName: "", fullMarks: 100, passMarks: 40 }]);
+  const addCustomSubject = () => set("subjects", [...form.subjects, {
+    subjectName: "",
+    fullMarks: 100,
+    passMarks: 40,
+    theoryFullMarks: 100,
+    theoryPassMarks: 40,
+    practicalFullMarks: 0,
+    practicalPassMarks: 0,
+    hasPractical: false,
+  }]);
   const removeCustomSubject = (i) => set("subjects", form.subjects.filter((_, idx) => idx !== i));
   const updateSubject = (i, field, val) => {
     const updated = [...form.subjects];
-    updated[i] = { ...updated[i], [field]: field === "subjectName" ? val : Number(val) };
+    updated[i] = {
+      ...updated[i],
+      [field]: field === "subjectName" || field === "hasPractical" ? val : Number(val),
+    };
     set("subjects", updated);
   };
 
@@ -55,6 +67,18 @@ const BulkCreateExam = () => {
     setError("");
     if (!form.examName.trim()) return setError("Exam name is required");
     if (form.allClassNames.length === 0) return setError("Select at least one class");
+    if (form.subjectSelectionMode === "customSubjects") {
+      for (const subject of form.subjects) {
+        if (!subject.subjectName.trim()) return setError("All subjects need a name");
+        if (subject.hasPractical) {
+          if (subject.theoryFullMarks <= 0 || subject.practicalFullMarks <= 0) return setError(`${subject.subjectName}: theory and practical full marks must be greater than 0`);
+          if (subject.theoryPassMarks < 0 || subject.theoryPassMarks > subject.theoryFullMarks) return setError(`${subject.subjectName}: theory pass marks must not exceed theory full marks`);
+          if (subject.practicalPassMarks < 0 || subject.practicalPassMarks > subject.practicalFullMarks) return setError(`${subject.subjectName}: practical pass marks must not exceed practical full marks`);
+        } else if (subject.fullMarks <= 0 || subject.passMarks < 0 || subject.passMarks > subject.fullMarks) {
+          return setError(`${subject.subjectName}: enter valid full and pass marks`);
+        }
+      }
+    }
     setSubmitting(true);
     try {
       await examAPI.createBulk({
@@ -62,7 +86,19 @@ const BulkCreateExam = () => {
         examType: form.examType,
         allClassNames: form.allClassNames,
         subjectSelectionMode: form.subjectSelectionMode,
-        subjects: form.subjectSelectionMode === "customSubjects" ? form.subjects : [],
+        subjects: form.subjectSelectionMode === "customSubjects" ? form.subjects.map((subject) => subject.hasPractical
+          ? {
+              ...subject,
+              fullMarks: Number(subject.theoryFullMarks) + Number(subject.practicalFullMarks),
+              passMarks: Number(subject.theoryPassMarks) + Number(subject.practicalPassMarks),
+            }
+          : {
+              ...subject,
+              theoryFullMarks: Number(subject.fullMarks),
+              theoryPassMarks: Number(subject.passMarks),
+              practicalFullMarks: 0,
+              practicalPassMarks: 0,
+            }) : [],
         startDate: form.startDate || undefined,
         endDate: form.endDate || undefined,
         isFinalExam: form.isFinalExam,
@@ -176,12 +212,27 @@ const BulkCreateExam = () => {
                 </div>
                 <div className="space-y-3">
                   {form.subjects.map((s, i) => (
-                    <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                      <div className="grid grid-cols-3 gap-2">
+                    <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <input type="text" value={s.subjectName} onChange={e => updateSubject(i, "subjectName", e.target.value)} className={ic} placeholder="Subject name" />
-                        <input type="number" value={s.fullMarks} onChange={e => updateSubject(i, "fullMarks", e.target.value)} className={ic} placeholder="Full marks" min="1" />
-                        <div className="flex gap-2">
-                          <input type="number" value={s.passMarks} onChange={e => updateSubject(i, "passMarks", e.target.value)} className={ic} placeholder="Pass marks" min="0" />
+                        {!s.hasPractical ? (
+                          <>
+                            <input type="number" value={s.fullMarks} onChange={e => updateSubject(i, "fullMarks", e.target.value)} className={ic} placeholder="Full marks" min="1" />
+                            <input type="number" value={s.passMarks} onChange={e => updateSubject(i, "passMarks", e.target.value)} className={ic} placeholder="Pass marks" min="0" />
+                          </>
+                        ) : (
+                          <>
+                            <input type="number" value={s.theoryFullMarks} onChange={e => updateSubject(i, "theoryFullMarks", e.target.value)} className={ic} placeholder="Theory full marks" min="1" />
+                            <input type="number" value={s.theoryPassMarks} onChange={e => updateSubject(i, "theoryPassMarks", e.target.value)} className={ic} placeholder="Theory pass marks" min="0" />
+                            <input type="number" value={s.practicalFullMarks} onChange={e => updateSubject(i, "practicalFullMarks", e.target.value)} className={ic} placeholder="Practical full marks" min="1" />
+                            <input type="number" value={s.practicalPassMarks} onChange={e => updateSubject(i, "practicalPassMarks", e.target.value)} className={ic} placeholder="Practical pass marks" min="0" />
+                          </>
+                        )}
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                          <input type="checkbox" checked={s.hasPractical} onChange={e => updateSubject(i, "hasPractical", e.target.checked)} />
+                          Has practical
+                        </label>
+                        <div className="flex justify-end">
                           <button type="button" onClick={() => removeCustomSubject(i)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition flex-shrink-0"><Trash2 size={14} /></button>
                         </div>
                       </div>

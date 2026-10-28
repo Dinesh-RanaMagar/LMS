@@ -1,5 +1,6 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, BarChart3, LineChart } from 'lucide-react';
+import { formatDecimal } from '../utils/numberFormat';
 
 // Simple Progress Bar Chart
 export const ProgressChart = ({ data, title, color = 'indigo' }) => {
@@ -16,7 +17,7 @@ export const ProgressChart = ({ data, title, color = 'indigo' }) => {
         <div key={index} className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium text-slate-700">{item.label}</span>
-            <span className={`font-bold text-${color}-700`}>{item.value}%</span>
+            <span className={`font-bold text-${color}-700`}>{formatDecimal(item.value)}%</span>
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-slate-200">
             <div 
@@ -52,7 +53,7 @@ export const SimpleLineChart = ({ data, title, color = 'emerald' }) => {
             return (
               <div key={index} className="flex flex-col items-center gap-2">
                 <div className="flex items-center gap-1 text-xs">
-                  <span className={`font-bold text-${color}-700`}>{item.value}%</span>
+                  <span className={`font-bold text-${color}-700`}>{formatDecimal(item.value)}%</span>
                   {trend > 0 && <TrendingUp size={12} className="text-emerald-500" />}
                   {trend < 0 && <TrendingDown size={12} className="text-rose-500" />}
                   {trend === 0 && <Minus size={12} className="text-slate-400" />}
@@ -90,7 +91,7 @@ export const RadarChart = ({ subjects, title }) => {
             <div className="flex flex-wrap gap-2">
               {strongSubjects.map((subject, index) => (
                 <span key={index} className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-800">
-                  {subject.name}: {subject.percentage}%
+                  {subject.name}: {formatDecimal(subject.percentage)}%
                 </span>
               ))}
             </div>
@@ -103,7 +104,7 @@ export const RadarChart = ({ subjects, title }) => {
             <div className="flex flex-wrap gap-2">
               {averageSubjects.map((subject, index) => (
                 <span key={index} className="inline-flex items-center rounded-full bg-yellow-100 px-3 py-1 text-sm font-medium text-yellow-800">
-                  {subject.name}: {subject.percentage}%
+                  {subject.name}: {formatDecimal(subject.percentage)}%
                 </span>
               ))}
             </div>
@@ -116,7 +117,7 @@ export const RadarChart = ({ subjects, title }) => {
             <div className="flex flex-wrap gap-2">
               {weakSubjects.map((subject, index) => (
                 <span key={index} className="inline-flex items-center rounded-full bg-rose-100 px-3 py-1 text-sm font-medium text-rose-800">
-                  {subject.name}: {subject.percentage}%
+                  {subject.name}: {formatDecimal(subject.percentage)}%
                 </span>
               ))}
             </div>
@@ -147,7 +148,7 @@ export const PieChart = ({ data, title }) => {
               <div className="flex-1">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-slate-700">{item.label}</span>
-                  <span className="text-slate-600">{item.value} ({percentage.toFixed(1)}%)</span>
+                  <span className="text-slate-600">{item.value} ({formatDecimal(percentage)}%)</span>
                 </div>
                 <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-200">
                   <div 

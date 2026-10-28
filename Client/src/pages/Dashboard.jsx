@@ -15,10 +15,11 @@ import {
 } from 'lucide-react';
 import { studentAPI, examAPI, marksheetAPI, academicYearAPI } from '../services/api';
 import Layout from '../components/Layout';
+import { formatDecimal } from '../utils/numberFormat';
 import { useAuth } from '../context/AuthContext';
 
 const StatCard = ({ label, value, icon: Icon, gradient, loading }) => (
-  <div className={`relative overflow-hidden rounded-3xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${gradient}`}>
+  <div className={`relative min-w-0 overflow-hidden rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${gradient}`}>
     <div className="absolute top-0 right-0 w-24 h-24 opacity-20">
       <Icon size={96} className="absolute -top-6 -right-6" />
     </div>
@@ -37,7 +38,7 @@ const StatCard = ({ label, value, icon: Icon, gradient, loading }) => (
 const QuickAction = ({ to, icon: Icon, label, description, gradient }) => (
   <Link
     to={to}
-    className="group relative overflow-hidden bg-white rounded-3xl border border-gray-100 p-6 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
+    className="group relative block overflow-hidden bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
   >
     <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 ${gradient}`}></div>
     <div className="relative z-10">
@@ -184,8 +185,8 @@ const Dashboard = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-6 mt-6">
+          <div className="min-w-0">
             <h2 className="text-base font-semibold text-gray-700 mb-4">Quick Actions</h2>
             <div className="space-y-4">
               <QuickAction 
@@ -240,7 +241,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="min-w-0">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-gray-700">Recent Marksheets</h2>
               <Link to="/marksheets" className="text-indigo-600 text-sm font-medium hover:underline flex items-center gap-1">
@@ -288,7 +289,7 @@ const Dashboard = () => {
                             </div>
                           </td>
                           <td className="px-5 py-3.5 text-gray-600">{ms.exam?.examName || ''}</td>
-                          <td className="px-5 py-3.5 font-semibold text-gray-700">{ms.percentage?.toFixed(1)}%</td>
+                          <td className="px-5 py-3.5 font-semibold text-gray-700">{formatDecimal(ms.percentage, 'N/A')}%</td>
                           <td className="px-5 py-3.5">
                             <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${gradeColor(ms.finalGrade || ms.grade)}`}>
                               {ms.finalGrade || ms.grade}

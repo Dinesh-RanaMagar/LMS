@@ -3,7 +3,9 @@ import Student from '../model/StudentModel.js';
 import Exam from '../model/examModel.js';
 import Marksheet from '../model/MarksheetModel.js';
 import Attendance from '../model/AttendanceModel.js';
+import AttendanceSummary from '../model/AttendanceSummaryModel.js';
 import AcademicYear from '../model/AcademicYearModel.js';
+import StudentEnrollment from '../model/StudentEnrollmentModel.js';
 
 const getGradeFromPercentage = (percentage) => {
   if (percentage >= 90) return 'A+';
@@ -24,6 +26,26 @@ const getGpaFromPercentage = (percentage) => {
   if (percentage >= 40) return 2.0;
   return 0.0;
 };
+
+const getHasFailedSubject = (marksheet) =>
+  Boolean(
+    marksheet?.result === 'Fail'
+    || marksheet?.marks?.some((mark) => {
+      if (mark.result === 'Fail') return true;
+      const theory = Number(mark.theory || 0);
+      const practical = Number(mark.practical || 0);
+      const hasPractical = Boolean(
+        mark.hasPractical
+        || Number(mark.practical || 0) > 0
+        || Number(mark.theoryFullMarks || 0) > 0
+        || Number(mark.practicalFullMarks || 0) > 0
+      );
+      return hasPractical
+        ? theory < Number(mark.theoryPassMarks ?? mark.passMarks ?? 0)
+          || practical < Number(mark.practicalPassMarks || 0)
+        : Number(mark.obtainedMarks ?? theory + practical) < Number(mark.passMarks || 0);
+    })
+  );
 
 const getPerformanceStatus = (change) => {
   if (change == null) return 'Unknown';
@@ -89,17 +111,64 @@ const calculateAttendance = async (student, academicYearName) => {
   };
 };
 
+const calculatePeriodAttendance = async (student, exams) => {
+  const academicYears = [...new Set(exams.map((exam) => exam.academicYear).filter(Boolean))];
+  if (!academicYears.length) return null;
+
+  const enrollments = await StudentEnrollment.find({
+    student: student._id,
+    academicYear: { $in: academicYears },
+  }).select('academicYear className section').lean();
+  const enrollmentByYear = new Map(enrollments.map((enrollment) => [enrollment.academicYear, enrollment]));
+  const examById = new Map(exams.map((exam) => [String(exam._id), exam]));
+  const summaries = await AttendanceSummary.find({
+    exam: { $in: exams.map((exam) => exam._id) },
+  }).select('exam className section workingDays records').lean();
+
+  let present = 0;
+  let absent = 0;
+  let workingDays = 0;
+
+  for (const summary of summaries) {
+    const exam = examById.get(String(summary.exam));
+    const enrollment = enrollmentByYear.get(exam?.academicYear);
+    if (!enrollment || enrollment.className !== summary.className || enrollment.section !== summary.section) continue;
+
+    const record = summary.records.find((item) => String(item.person) === String(student._id));
+    if (!record) continue;
+    present += record.presentDays;
+    absent += record.absentDays;
+    workingDays += summary.workingDays;
+  }
+
+  if (!workingDays) return null;
+  return {
+    percentage: Number(((present / workingDays) * 100).toFixed(1)),
+    records: workingDays,
+    workingDays,
+    present,
+    absent,
+  };
+};
+
 const getRankForExam = async (exam, student) => {
   const year = await AcademicYear.findOne({ yearName: exam.academicYear });
   if (!year) return { rank: null, totalStudents: 0, classAverage: null };
 
-  const studentRecord = await StudentAcademicYear.findOne({ student: student._id, academicYear: year._id });
+  const studentRecord = await StudentEnrollment.findOne({
+    student: student._id,
+    academicYear: year.yearName,
+  });
   if (!studentRecord) return { rank: null, totalStudents: 0, classAverage: null };
 
   const { className, section } = studentRecord;
 
   // Find all students in this class/section for this year
-  const peers = await StudentAcademicYear.find({ academicYear: year._id, className, section }).select('student');
+  const peers = await StudentEnrollment.find({
+    academicYear: year.yearName,
+    className,
+    section,
+  }).select('student');
   const peerIds = peers.map(p => p.student);
 
   const candidates = await Marksheet.find({ 
@@ -158,16 +227,19 @@ export const compareEvaluation = async (req, res) => {
       const derivedGpa = storedGpa === 0 && storedPercentage != null && storedPercentage > 0
         ? getGpaFromPercentage(storedPercentage)
         : storedGpa;
+      const hasFailedSubject = getHasFailedSubject(marksheet);
       return {
         _id: exam._id,
         examName: exam.examName,
         percentage: storedPercentage,
         gpa: derivedGpa,
-        finalGrade: marksheet?.grade ?? null,
+        finalGrade: marksheet
+          ? hasFailedSubject ? 'Failed' : marksheet.grade
+          : null,
         obtainedMarks: marksheet?.totalMarks ?? null,
         totalMarks: marksheet?.totalFullMarks ?? null,
         status: marksheet ? 'Published' : 'Missing',
-        result: marksheet?.result ?? 'Pending',
+        result: marksheet ? hasFailedSubject ? 'Fail' : marksheet.result : 'Pending',
         rank,
         totalStudents,
         classAverage,
@@ -181,25 +253,52 @@ export const compareEvaluation = async (req, res) => {
         const subjectMark = marksheet.marks.find((item) => item.subject === subject);
         if (!subjectMark) return null;
         
-        const totalObtained = subjectMark.obtainedMarks ?? 0;
-        const fullMarks = subjectMark.fullMarks ?? 0;
+        const totalObtained = Number(subjectMark.obtainedMarks ?? (Number(subjectMark.theory || 0) + Number(subjectMark.practical || 0)));
+        const fullMarks = Number(subjectMark.fullMarks || 0);
         const percentage = fullMarks ? Number(((totalObtained / fullMarks) * 100).toFixed(1)) : 0;
+        const theory = Number(subjectMark.theory || 0);
+        const practical = Number(subjectMark.practical || 0);
+        const hasPractical = Boolean(
+          subjectMark.hasPractical
+          || practical > 0
+          || Number(subjectMark.theoryFullMarks || 0) > 0
+          || Number(subjectMark.practicalFullMarks || 0) > 0
+        );
+        const theoryFullMarks = Number(subjectMark.theoryFullMarks || (hasPractical ? fullMarks - Number(subjectMark.practicalFullMarks || 0) : fullMarks));
+        const theoryPercentage = theoryFullMarks ? Number(((theory / theoryFullMarks) * 100).toFixed(1)) : 0;
+        const theoryPassMarks = hasPractical
+          ? Number(subjectMark.theoryPassMarks ?? subjectMark.passMarks ?? 0)
+          : Number(subjectMark.passMarks || 0);
+        const practicalPassMarks = Number(subjectMark.practicalPassMarks || 0);
+        const subjectResult = hasPractical
+          ? theory >= theoryPassMarks && practical >= practicalPassMarks ? 'Pass' : 'Fail'
+          : totalObtained >= Number(subjectMark.passMarks || 0) ? 'Pass' : 'Fail';
+        const theoryResult = theory >= theoryPassMarks ? 'Pass' : 'Fail';
         
         return {
           raw: totalObtained,
+          theoryRaw: theory,
           fullMarks,
+          theoryFullMarks,
           percentage,
-          gpa: getGpaFromPercentage(percentage),
-          grade: getGradeFromPercentage(percentage),
+          theoryPercentage,
+          gpa: subjectResult === 'Fail' ? 0.0 : getGpaFromPercentage(percentage),
+          theoryGpa: theoryResult === 'Fail' ? 0.0 : getGpaFromPercentage(theoryPercentage),
+          grade: subjectResult === 'Fail' ? 'Failed' : getGradeFromPercentage(percentage),
+          theoryGrade: theoryResult === 'Fail' ? 'Failed' : getGradeFromPercentage(theoryPercentage),
+          result: subjectResult,
+          theoryResult,
         };
       });
       const first = stats.find(Boolean);
       const last = [...stats].reverse().find(Boolean);
       const change = first && last ? last.raw - first.raw : null;
+      const theoryChange = first && last ? last.theoryRaw - first.theoryRaw : null;
       return {
         subject,
         stats,
         change,
+        theoryChange,
         status: getPerformanceStatus(change),
       };
     });
@@ -235,7 +334,8 @@ export const compareEvaluation = async (req, res) => {
 
     // Use the academic year of the most recent exam for attendance calculation
     const latestExam = exams[exams.length - 1];
-    const attendance = await calculateAttendance(student, latestExam?.academicYear);
+    const attendance = (await calculatePeriodAttendance(student, exams))
+      || await calculateAttendance(student, latestExam?.academicYear);
     
     const aiSummary = buildAiSummary({ strongSubjects, weakSubjects, improvement, stableSubjects });
 

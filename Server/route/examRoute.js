@@ -3,6 +3,7 @@ import { isAdmin } from "../Middleware/auth.js";
 import {
     createExam,
     createBulkExam,
+    copyExam,
     getExams,
     getExamById,
     updateExam,
@@ -19,6 +20,7 @@ router.use(isAdmin);
 // Standard CRUD
 router.post("/",            createExam);
 router.post("/create-bulk", createBulkExam);
+router.post("/:id/copy",    copyExam);
 router.get("/",             getExams);
 router.get("/:id",          getExamById);
 router.put("/:id",          updateExam);

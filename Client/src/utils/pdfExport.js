@@ -1,6 +1,7 @@
 // Enhanced PDF Export Utility for Student Evaluation Dashboard
+import { formatDecimal } from './numberFormat';
 
-export const generateEvaluationPDF = (dashboard, selectedStudent, selectedExams, mode) => {
+export const generateEvaluationPDF = (dashboard, selectedStudent, selectedExams, mode, markComponent = 'whole') => {
   if (!dashboard || !selectedStudent) {
     console.error('Missing required data for PDF generation');
     return;
@@ -276,12 +277,12 @@ export const generateEvaluationPDF = (dashboard, selectedStudent, selectedExams,
       <div class="summary-cards">
         <div class="summary-card average">
           <h3>Average Score</h3>
-          <div class="value">${dashboard.summary.averages[dashboard.summary.averages.length - 1]?.average || 'N/A'}%</div>
+          <div class="value">${formatDecimal(dashboard.summary.averages[dashboard.summary.averages.length - 1]?.average, 'N/A')}%</div>
           <div class="subtitle">Latest Term</div>
         </div>
         <div class="summary-card gpa">
           <h3>GPA</h3>
-          <div class="value">${dashboard.summary.averages[dashboard.summary.averages.length - 1]?.gpa?.toFixed(1) || 'N/A'}</div>
+          <div class="value">${formatDecimal(dashboard.summary.averages[dashboard.summary.averages.length - 1]?.gpa, 'N/A')}</div>
           <div class="subtitle">Grade: ${dashboard.summary.averages[dashboard.summary.averages.length - 1]?.grade || 'N/A'}</div>
         </div>
         <div class="summary-card rank">
@@ -291,7 +292,7 @@ export const generateEvaluationPDF = (dashboard, selectedStudent, selectedExams,
         </div>
         <div class="summary-card attendance">
           <h3>Attendance</h3>
-          <div class="value">${dashboard.attendance.percentage || 'N/A'}%</div>
+          <div class="value">${formatDecimal(dashboard.attendance.percentage, 'N/A')}%</div>
           <div class="subtitle">${dashboard.attendance.present}/${dashboard.attendance.records} days</div>
         </div>
       </div>
@@ -309,13 +310,19 @@ export const generateEvaluationPDF = (dashboard, selectedStudent, selectedExams,
           ${dashboard.subjects.map(subject => `
             <tr>
               <td><strong>${subject.subject}</strong></td>
-              ${subject.stats.map(stat => `
-                <td>${stat ? (mode === 'percentage' ? `${stat.percentage}%` : 
-                             mode === 'gpa' ? stat.gpa?.toFixed(1) : 
-                             mode === 'grade' ? stat.grade : 
-                             stat.raw) : 'N/A'}</td>
-              `).join('')}
-              <td>${subject.change != null ? `${subject.change > 0 ? '+' : ''}${subject.change}` : 'N/A'}</td>
+              ${subject.stats.map(stat => {
+                const isTheory = markComponent === 'theory';
+                const grade = isTheory ? stat?.theoryGrade : stat?.grade;
+                const value = mode === 'percentage'
+                  ? `${formatDecimal(isTheory ? stat?.theoryPercentage : stat?.percentage)}%`
+                  : mode === 'gpa'
+                    ? formatDecimal(isTheory ? stat?.theoryGpa : stat?.gpa)
+                    : mode === 'grade'
+                      ? grade
+                      : (isTheory ? stat?.theoryRaw : stat?.raw);
+                return `<td>${stat ? value : 'N/A'}</td>`;
+              }).join('')}
+              <td>${(markComponent === 'theory' ? subject.theoryChange : subject.change) != null ? `${(markComponent === 'theory' ? subject.theoryChange : subject.change) > 0 ? '+' : ''}${formatDecimal(markComponent === 'theory' ? subject.theoryChange : subject.change)}` : 'N/A'}</td>
               <td><span class="status-badge status-${subject.status.toLowerCase()}">${subject.status}</span></td>
             </tr>
           `).join('')}

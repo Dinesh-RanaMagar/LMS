@@ -39,7 +39,12 @@ export const calculateCreditHourGPA = (marks = []) => {
     const percentage = fullMarks ? (obtainedMarks / fullMarks) * 100 : 0;
     const grade = getGrade(percentage);
     const gradePoint = getGradePoint(percentage);
-    const result = obtainedMarks >= passMarks ? "Pass" : "Fail";
+    const hasPractical = Boolean(mark.hasPractical);
+    const theoryPassMarks = Number(mark.theoryPassMarks || 0);
+    const practicalPassMarks = Number(mark.practicalPassMarks || 0);
+    const result = hasPractical
+      ? theory >= theoryPassMarks && practical >= practicalPassMarks ? "Pass" : "Fail"
+      : obtainedMarks >= passMarks ? "Pass" : "Fail";
 
     totalMarks += obtainedMarks;
     totalFullMarks += fullMarks;
@@ -59,6 +64,11 @@ export const calculateCreditHourGPA = (marks = []) => {
       practical,
       fullMarks,
       passMarks,
+      hasPractical,
+      theoryFullMarks: Number(mark.theoryFullMarks || 0),
+      theoryPassMarks,
+      practicalFullMarks: Number(mark.practicalFullMarks || 0),
+      practicalPassMarks,
       creditHour,
       obtainedMarks,
       percentage,

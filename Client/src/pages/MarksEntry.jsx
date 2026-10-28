@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { marksheetAPI, examAPI, studentAPI } from '../services/api';
 import Layout from '../components/Layout';
-import { Save, AlertCircle, CheckCircle } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle, Upload, Download } from 'lucide-react';
+import { buildMarksExcelTemplate } from '../utils/marksExcelTemplate';
+import { formatDecimal } from '../utils/numberFormat';
 
 const inputClass = 'w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50 focus:bg-white transition';
 const markInputClass = 'w-20 px-2.5 py-1.5 border border-gray-200 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed';
 
 const MarksEntry = () => {
   const [mode, setMode] = useState('single');
+  const [bulkEntryMethod, setBulkEntryMethod] = useState('manual');
   const [exams, setExams] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedExam, setSelectedExam] = useState('');
@@ -21,11 +24,15 @@ const MarksEntry = () => {
   const [selectedBulkSubjects, setSelectedBulkSubjects] = useState([]);
   const [marks, setMarks] = useState([]);
   const [bulkMarks, setBulkMarks] = useState({});
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [marksFile, setMarksFile] = useState(null);
+  const [marksImportPreview, setMarksImportPreview] = useState(null);
+  const [importingMarks, setImportingMarks] = useState(false);
   const inputRefs = useRef({});
+  const bulkLoadRequest = useRef(0);
 
   const selectedExamObj = exams.find((e) => e._id === selectedExam);
   const selectedClassConfig = selectedExamObj?.classExamConfigs?.find((cfg) => cfg.className === selectedClass);
@@ -34,8 +41,11 @@ const MarksEntry = () => {
 
   useEffect(() => {
     fetchExams();
-    fetchStudents();
   }, []);
+
+  useEffect(() => {
+    if (selectedExamObj?.academicYear) fetchStudents(selectedExamObj.academicYear);
+  }, [selectedExamObj?.academicYear]);
 
   useEffect(() => {
     if (selectedExam) fetchExamDetails(selectedExam);
@@ -62,7 +72,7 @@ const MarksEntry = () => {
     if (mode === 'bulk' && selectedExam && selectedClass && selectedBulkSubjects.length > 0) {
       loadBulkMarks();
     }
-  }, [mode, selectedExam, selectedClass, selectedSection, selectedBulkSubjects.join('|')]);
+  }, [mode, bulkEntryMethod, selectedExam, selectedClass, selectedSection, selectedBulkSubjects.join('|'), students]);
 
   const fetchExams = async () => {
     try {
@@ -73,9 +83,9 @@ const MarksEntry = () => {
     }
   };
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (academicYear) => {
     try {
-      const response = await studentAPI.getAll();
+      const response = await studentAPI.getAll(academicYear ? { academicYear } : undefined);
       setStudents(response.data.students || []);
     } catch (err) {
       console.error('Failed to fetch students', err);
@@ -90,7 +100,7 @@ const MarksEntry = () => {
     passMarks: subject.passMarks,
     hasPractical: subject.hasPractical,
     theoryFullMarks: subject.theoryFullMarks || subject.fullMarks,
-    theoryPassMarks: subject.theoryPassMarks || subject.passMarks,
+    theoryPassMarks: subject.theoryPassMarks ?? subject.passMarks,
     practicalFullMarks: subject.practicalFullMarks || 0,
     practicalPassMarks: subject.practicalPassMarks || 0,
   });
@@ -129,12 +139,12 @@ const MarksEntry = () => {
   const loadStudentMarks = async () => {
     try {
       setLoading(true);
-      const defaultMarks = selectedExamObj.classExamConfigs
-        ?.flatMap((cfg) => cfg.subjects || [])
-        ?.filter((subject, index, arr) => arr.findIndex((item) => item.subjectName === subject.subjectName) === index)
-        ?.map(toMarkItem) || [];
+      const studentClassName = students.find((student) => student._id === selectedStudent)?.className;
+      const studentClassConfig = selectedExamObj.classExamConfigs
+        ?.find((config) => config.className === studentClassName);
+      const defaultMarks = (studentClassConfig?.subjects || []).map(toMarkItem);
       try {
-        const response = await marksheetAPI.getByStudentExam(selectedStudent, selectedExam);
+        const response = await marksheetAPI.getByStudentExam(selectedStudent, selectedExam, true);
         setMarks(mergeExistingMarks(defaultMarks, response.data.marksheet.marks || []));
       } catch (err) {
         if (err.response?.status === 404) setMarks(defaultMarks);
@@ -148,11 +158,14 @@ const MarksEntry = () => {
   };
 
   const loadBulkMarks = async () => {
+    const requestId = bulkLoadRequest.current + 1;
+    bulkLoadRequest.current = requestId;
+    setBulkLoading(true);
     try {
       const nextBulkMarks = {};
-      await Promise.all(filteredStudents.map(async (student) => {
+      await Promise.all(bulkStudents.map(async (student) => {
         try {
-          const response = await marksheetAPI.getByStudentExam(student._id, selectedExam);
+          const response = await marksheetAPI.getByStudentExam(student._id, selectedExam, true);
           const existingMarks = response.data.marksheet.marks || [];
           selectedBulkSubjects.forEach((subjectName) => {
             const existing = existingMarks.find((mark) => mark.subject === subjectName);
@@ -169,9 +182,13 @@ const MarksEntry = () => {
           if (err.response?.status !== 404) throw err;
         }
       }));
-      setBulkMarks(nextBulkMarks);
+      if (requestId === bulkLoadRequest.current) setBulkMarks(nextBulkMarks);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load existing bulk marks');
+      if (requestId === bulkLoadRequest.current) {
+        setError(err.response?.data?.message || 'Failed to load existing bulk marks');
+      }
+    } finally {
+      if (requestId === bulkLoadRequest.current) setBulkLoading(false);
     }
   };
 
@@ -180,6 +197,11 @@ const MarksEntry = () => {
     .filter((student) => student.className === selectedClass)
     .map((student) => student.section)
     .filter(Boolean))].sort();
+  const sectionStudents = students
+    .filter((student) => student.className === selectedClass && student.section === selectedSection)
+    .sort((a, b) => Number(a.rollNo || 99999) - Number(b.rollNo || 99999) || a.name.localeCompare(b.name));
+  const bulkStudents = students
+    .filter((student) => student.className === selectedClass && (!selectedSection || student.section === selectedSection));
 
   const filteredStudents = selectedExam
     ? students.filter((student) => {
@@ -216,7 +238,16 @@ const MarksEntry = () => {
     return true;
   };
 
-  const handleSingleMarkChange = (index, field, value) => {
+  const resetInvalidMark = (input, message, resetMark) => {
+    window.alert(message);
+    resetMark();
+    requestAnimationFrame(() => {
+      input?.focus();
+      input?.select();
+    });
+  };
+
+  const handleSingleMarkChange = (index, field, value, input) => {
     const numberValue = Number(value);
     const mark = marks[index];
     const max = field === 'theory'
@@ -224,7 +255,10 @@ const MarksEntry = () => {
       : mark.practicalFullMarks;
 
     if (numberValue > max) {
-      setError(`${mark.subject}: ${field} mark cannot be more than full mark (${max})`);
+      resetInvalidMark(input, `${mark.subject}: ${field} mark cannot be more than full mark (${max})`, () => {
+        setMarks((current) => current.map((item, idx) => idx === index ? { ...item, [field]: 0 } : item));
+        setError('');
+      });
       return;
     }
 
@@ -256,7 +290,7 @@ const MarksEntry = () => {
     });
   };
 
-  const handleBulkMarkChange = (studentId, subjectName, field, value) => {
+  const handleBulkMarkChange = (studentId, subjectName, field, value, input) => {
     const subjectConfig = subjects.find((subject) => subject.subjectName === subjectName);
     if (!subjectConfig) return;
     const numberValue = Number(value);
@@ -265,7 +299,19 @@ const MarksEntry = () => {
       : subjectConfig.practicalFullMarks;
 
     if (numberValue > max) {
-      setError(`${subjectName}: ${field} mark cannot be more than full mark (${max})`);
+      resetInvalidMark(input, `${subjectName}: ${field} mark cannot be more than full mark (${max})`, () => {
+        setBulkMarks((current) => ({
+          ...current,
+          [studentId]: {
+            ...current[studentId],
+            [subjectName]: {
+              theory: field === 'theory' ? 0 : Number(current[studentId]?.[subjectName]?.theory || 0),
+              practical: field === 'practical' ? 0 : Number(current[studentId]?.[subjectName]?.practical || 0),
+            },
+          },
+        }));
+        setError('');
+      });
       return;
     }
 
@@ -314,7 +360,7 @@ const MarksEntry = () => {
     let marksheetId = null;
 
     try {
-      const existing = await marksheetAPI.getByStudentExam(studentId, selectedExam);
+      const existing = await marksheetAPI.getByStudentExam(studentId, selectedExam, true);
       payloadMarks = existing.data.marksheet.marks || payloadMarks;
       marksheetId = existing.data.marksheet._id;
     } catch (err) {
@@ -343,26 +389,26 @@ const MarksEntry = () => {
   const handleSingleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
     if (!selectedExam || !selectedStudent || marks.length === 0) return setError('Please select both an exam and a student');
     if (!validateDate()) return;
 
     for (const mark of marks) {
       if (mark.theory < 0 || mark.practical < 0) return setError('Marks cannot be negative');
+      if (mark.hasPractical && mark.theory > mark.theoryFullMarks) return setError(`${mark.subject}: theory mark exceeds ${mark.theoryFullMarks}`);
+      if (mark.hasPractical && mark.practical > mark.practicalFullMarks) return setError(`${mark.subject}: practical mark exceeds ${mark.practicalFullMarks}`);
       if (mark.theory + mark.practical > mark.fullMarks) return setError(`Total marks for "${mark.subject}" exceed full marks (${mark.fullMarks})`);
     }
 
     setSubmitting(true);
     try {
       try {
-        const existing = await marksheetAPI.getByStudentExam(selectedStudent, selectedExam);
+        const existing = await marksheetAPI.getByStudentExam(selectedStudent, selectedExam, true);
         await marksheetAPI.update(existing.data.marksheet._id, { marks });
       } catch (err) {
         if (err.response?.status === 404) await marksheetAPI.create({ studentId: selectedStudent, examId: selectedExam, marks });
         else throw err;
       }
-      setSuccess('Marks saved successfully. You can update them again if needed.');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save marks');
     } finally {
@@ -373,7 +419,6 @@ const MarksEntry = () => {
   const handleBulkSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
     if (!selectedExam || !selectedClass || selectedBulkSubjects.length === 0) return setError('Please select exam, class, and at least one subject');
     if (!validateDate()) return;
@@ -381,12 +426,22 @@ const MarksEntry = () => {
     const rows = filteredStudents.filter((student) => bulkMarks[student._id]);
     if (rows.length === 0) return setError('Enter marks for at least one student');
 
+    for (const student of rows) {
+      for (const [subjectName, studentMarks] of Object.entries(bulkMarks[student._id])) {
+        const subject = subjects.find((item) => item.subjectName === subjectName);
+        if (!subject) continue;
+        if (studentMarks.theory < 0 || studentMarks.practical < 0) return setError(`${student.name}: marks cannot be negative`);
+        if (studentMarks.theory > (subject.hasPractical ? subject.theoryFullMarks : subject.fullMarks)) return setError(`${student.name}, ${subjectName}: theory mark exceeds its full mark`);
+        if (subject.hasPractical && studentMarks.practical > subject.practicalFullMarks) return setError(`${student.name}, ${subjectName}: practical mark exceeds its full mark`);
+        if (studentMarks.theory + studentMarks.practical > subject.fullMarks) return setError(`${student.name}, ${subjectName}: total mark exceeds ${subject.fullMarks}`);
+      }
+    }
+
     setSubmitting(true);
     try {
       for (const student of rows) {
         await saveStudentMarks(student._id, bulkMarks[student._id]);
       }
-      setSuccess(`Saved marks for ${rows.length} student${rows.length !== 1 ? 's' : ''}`);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save bulk marks');
     } finally {
@@ -394,9 +449,78 @@ const MarksEntry = () => {
     }
   };
 
+  const buildMarksImportForm = () => {
+    const formData = new FormData();
+    formData.append('file', marksFile);
+    formData.append('examId', selectedExam);
+    formData.append('className', selectedClass);
+    formData.append('section', selectedSection);
+    return formData;
+  };
+
+  const downloadMarksTemplate = () => {
+    const workbook = buildMarksExcelTemplate({
+      students: sectionStudents,
+      subjects: selectedSubjectConfigs,
+    });
+    const blob = new Blob([`\uFEFF${workbook}`], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const filenamePart = (value) => String(value || '').replace(/[^a-z0-9_-]+/gi, '_');
+    link.href = url;
+    link.download = `marks_${filenamePart(selectedExamObj?.examName)}_${filenamePart(selectedClass)}_${filenamePart(selectedSection)}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const resetMarksImport = () => {
+    setMarksFile(null);
+    setMarksImportPreview(null);
+  };
+
+  const previewExcelMarks = async () => {
+    setError('');
+    setMarksImportPreview(null);
+    if (!selectedExam || !selectedClass || !selectedSection || !marksFile) {
+      setError('Select an exam, class, section, and Excel file first.');
+      return;
+    }
+
+    setImportingMarks(true);
+    try {
+      const response = await marksheetAPI.previewImport(buildMarksImportForm());
+      setMarksImportPreview(response.data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not preview the Excel marks.');
+    } finally {
+      setImportingMarks(false);
+    }
+  };
+
+  const confirmExcelMarksImport = async () => {
+    if (!marksImportPreview || marksImportPreview.validCount === 0) return;
+    setError('');
+    setImportingMarks(true);
+    try {
+      const response = await marksheetAPI.importExcel(buildMarksImportForm());
+      setMarksImportPreview(null);
+      setMarksFile(null);
+      await loadBulkMarks();
+      if (response.data.errors?.length) {
+        setError(response.data.errors.map((item) => `Row ${item.rowNumber} (roll ${item.rollNo || '-'}): ${item.message}`).join(' '));
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not import the Excel marks.');
+    } finally {
+      setImportingMarks(false);
+    }
+  };
+
   const totalObtained = marks.reduce((sum, mark) => sum + mark.theory + mark.practical, 0);
   const totalFull = marks.reduce((sum, mark) => sum + mark.fullMarks, 0);
-  const percentage = totalFull > 0 ? ((totalObtained / totalFull) * 100).toFixed(1) : 0;
+  const percentage = totalFull > 0 ? (totalObtained / totalFull) * 100 : 0;
 
   return (
     <Layout>
@@ -407,7 +531,6 @@ const MarksEntry = () => {
         </div>
 
         {error && <Alert type="error" message={error} />}
-        {success && <Alert type="success" message={success} />}
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
           <div className="max-w-sm">
@@ -462,7 +585,7 @@ const MarksEntry = () => {
                   <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Enter Marks</h2>
                   <div className="flex items-center gap-4 text-sm">
                     <span className="text-gray-500">Total: <span className="font-bold text-gray-800">{totalObtained}/{totalFull}</span></span>
-                    <span className={`font-bold ${parseFloat(percentage) >= 40 ? 'text-green-600' : 'text-red-600'}`}>{percentage}%</span>
+                    <span className={`font-bold ${percentage >= 40 ? 'text-green-600' : 'text-red-600'}`}>{formatDecimal(percentage)}%</span>
                   </div>
                 </div>
                 <MarksTable marks={marks} onChange={handleSingleMarkChange} />
@@ -473,17 +596,17 @@ const MarksEntry = () => {
           </form>
         ) : (
           <form onSubmit={handleBulkSubmit} className="space-y-5">
-            <SelectionCard selectedExam={selectedExam} setSelectedExam={(value) => { setSelectedExam(value); setSelectedClass(''); setSelectedSection(''); setSelectedBulkSubjects([]); }} exams={exams}>
+            <SelectionCard selectedExam={selectedExam} setSelectedExam={(value) => { setSelectedExam(value); setSelectedClass(''); setSelectedSection(''); setSelectedBulkSubjects([]); resetMarksImport(); }} exams={exams}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Class <span className="text-red-500">*</span></label>
-                <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className={inputClass} required disabled={!selectedExam}>
+                <select value={selectedClass} onChange={(e) => { setSelectedClass(e.target.value); resetMarksImport(); }} className={inputClass} required disabled={!selectedExam}>
                   <option value="">Select class</option>
                   {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Section</label>
-                <select value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)} className={inputClass} disabled={!selectedClass}>
+                <select value={selectedSection} onChange={(e) => { setSelectedSection(e.target.value); resetMarksImport(); }} className={inputClass} disabled={!selectedClass}>
                   <option value="">All sections</option>
                   {sectionOptions.map((section) => <option key={section} value={section}>Section {section}</option>)}
                 </select>
@@ -525,12 +648,118 @@ const MarksEntry = () => {
               </div>
             </SelectionCard>
 
+            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Bulk Entry Method</label>
+              <select value={bulkEntryMethod} onChange={(e) => setBulkEntryMethod(e.target.value)} className={inputClass} disabled={!selectedExam || !selectedClass || selectedBulkSubjects.length === 0}>
+                <option value="manual">Manual Entry</option>
+                <option value="excel">Excel Upload</option>
+              </select>
+              {selectedBulkSubjects.length === 0 && <p className="mt-1.5 text-xs text-gray-500">Choose at least one subject above to select an entry method.</p>}
+            </section>
+
+            {bulkEntryMethod === 'excel' && <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+              <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Excel marks template</h2>
+                  <p className="text-xs text-gray-500 mt-1">Select a term, class, section, and subjects above to download a prefilled workbook.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={downloadMarksTemplate}
+                  disabled={!selectedExam || !selectedClass || !selectedSection || selectedSubjectConfigs.length === 0 || sectionStudents.length === 0}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download size={17} />Download Excel Template
+                </button>
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Upload marks from Excel</h2>
+                <p className="text-xs text-gray-500 mt-1">Fill in the downloaded template, then upload it here. Enter TH and INT marks; INT is prefilled as 0 for subjects without a practical component.</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(event) => {
+                    setMarksFile(event.target.files?.[0] || null);
+                    setMarksImportPreview(null);
+                  }}
+                  className={`${inputClass} sm:flex-1`}
+                />
+                <button
+                  type="button"
+                  onClick={previewExcelMarks}
+                  disabled={importingMarks || !marksFile || !selectedExam || !selectedClass || !selectedSection}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-50 px-5 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                >
+                  <Upload size={17} />{importingMarks ? 'Checking...' : 'Preview Excel'}
+                </button>
+              </div>
+              {!selectedSection && <p className="text-xs text-amber-700">Choose a specific section above before uploading marks.</p>}
+
+              {marksImportPreview && (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <p className="font-medium text-gray-700">
+                      {marksImportPreview.validCount} valid / {marksImportPreview.totalRows} rows
+                      {marksImportPreview.invalidCount > 0 && <span className="text-red-600"> · {marksImportPreview.invalidCount} need correction</span>}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={confirmExcelMarksImport}
+                      disabled={importingMarks || marksImportPreview.validCount === 0}
+                      className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {importingMarks ? 'Importing...' : `Import ${marksImportPreview.validCount} valid student(s)`}
+                    </button>
+                  </div>
+                  <div className="max-h-80 overflow-auto rounded-xl border border-gray-100">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-gray-50">
+                        <tr>
+                          <th className="p-2 text-left">Excel row</th>
+                          <th className="p-2 text-left">Roll</th>
+                          <th className="p-2 text-left">Student</th>
+                          {marksImportPreview.subjects.map((subject) => <th key={subject} className="p-2 text-center">{subject} TH / INT</th>)}
+                          <th className="p-2 text-left">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {marksImportPreview.rows.map((row) => (
+                          <tr key={`${row.rowNumber}-${row.rollNo}`} className="border-t border-gray-100">
+                            <td className="p-2">{row.rowNumber}</td>
+                            <td className="p-2">{row.rollNo || '-'}</td>
+                            <td className="p-2">{row.name || '-'}</td>
+                            {marksImportPreview.subjects.map((subject) => {
+                              const mark = row.marks.find((item) => item.subject === subject);
+                              return <td key={subject} className="p-2 text-center">{mark ? `${mark.theory} / ${mark.practical}` : '-'}</td>;
+                            })}
+                            <td className={`p-2 ${row.valid ? 'text-green-700' : 'text-red-700'}`}>
+                              {row.valid ? 'Ready' : row.errors.join(' ')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-gray-500">Existing marks for these subjects will be replaced; other subjects on each marksheet are kept. Totals, grades, GPA, and pass/fail are recalculated.</p>
+                </div>
+              )}
+            </section>}
+
             {selectedSubjectConfigs.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100">
-                  <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Bulk Entry</h2>
-                  <p className="text-xs text-gray-400 mt-1">{selectedBulkSubjects.length} subject column group{selectedBulkSubjects.length !== 1 ? 's' : ''} selected.</p>
+                  <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    {bulkEntryMethod === 'excel' ? 'Saved Marks — Editable' : 'Bulk Entry'}
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {bulkEntryMethod === 'excel'
+                      ? 'Existing marks are loaded below. Edit any value and save your corrections.'
+                      : `${selectedBulkSubjects.length} subject column group${selectedBulkSubjects.length !== 1 ? 's' : ''} selected.`}
+                  </p>
                 </div>
+                {bulkLoading && <p className="px-6 py-3 text-sm text-indigo-600">Loading saved marks...</p>}
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -551,8 +780,8 @@ const MarksEntry = () => {
                         <th />
                         {selectedSubjectConfigs.map((subject) => (
                           <React.Fragment key={`${subject.subjectName}-sub`}>
-                            <th className="px-3 py-2 text-center text-xs text-gray-400">Theory/{subject.hasPractical ? subject.theoryFullMarks : subject.fullMarks}</th>
-                            {subject.hasPractical && <th className="px-3 py-2 text-center text-xs text-gray-400">Practical/{subject.practicalFullMarks}</th>}
+                            <th className="px-3 py-2 text-center text-xs text-gray-400">Theory {subject.hasPractical ? `${subject.theoryFullMarks} / pass ${subject.theoryPassMarks}` : `${subject.fullMarks} / pass ${subject.passMarks}`}</th>
+                            {subject.hasPractical && <th className="px-3 py-2 text-center text-xs text-gray-400">Practical {subject.practicalFullMarks} / pass {subject.practicalPassMarks}</th>}
                             <th className="px-3 py-2 text-center text-xs text-gray-400">Total</th>
                           </React.Fragment>
                         ))}
@@ -569,12 +798,12 @@ const MarksEntry = () => {
                               const subjectRow = row[subject.subjectName] || { theory: 0, practical: 0 };
                               return (
                                 <React.Fragment key={`${student._id}-${subject.subjectName}`}>
-                                  <td className="px-3 py-3 text-center">
-                                    <input ref={(el) => { inputRefs.current[`${rowIndex}-${subjectIndex}-theory`] = el; }} type="number" min="0" max={subject.hasPractical ? subject.theoryFullMarks : subject.fullMarks} value={subjectRow.theory} onKeyDown={(e) => handleBulkKeyDown(e, rowIndex, subjectIndex, 'theory')} onChange={(e) => handleBulkMarkChange(student._id, subject.subjectName, 'theory', e.target.value)} className={markInputClass} />
+                                  <td className="px-3 py-3 text-center" title={`Theory full: ${subject.hasPractical ? subject.theoryFullMarks : subject.fullMarks}; pass: ${subject.hasPractical ? subject.theoryPassMarks : subject.passMarks}`}>
+                                    <input ref={(el) => { inputRefs.current[`${rowIndex}-${subjectIndex}-theory`] = el; }} type="number" min="0" max={subject.hasPractical ? subject.theoryFullMarks : subject.fullMarks} value={subjectRow.theory} disabled={bulkLoading} onKeyDown={(e) => handleBulkKeyDown(e, rowIndex, subjectIndex, 'theory')} onChange={(e) => handleBulkMarkChange(student._id, subject.subjectName, 'theory', e.target.value, e.currentTarget)} className={markInputClass} />
                                   </td>
                                   {subject.hasPractical && (
-                                    <td className="px-3 py-3 text-center">
-                                      <input ref={(el) => { inputRefs.current[`${rowIndex}-${subjectIndex}-practical`] = el; }} type="number" min="0" max={subject.practicalFullMarks} value={subjectRow.practical} onKeyDown={(e) => handleBulkKeyDown(e, rowIndex, subjectIndex, 'practical')} onChange={(e) => handleBulkMarkChange(student._id, subject.subjectName, 'practical', e.target.value)} className={markInputClass} />
+                                    <td className="px-3 py-3 text-center" title={`Practical full: ${subject.practicalFullMarks}; pass: ${subject.practicalPassMarks}`}>
+                                      <input ref={(el) => { inputRefs.current[`${rowIndex}-${subjectIndex}-practical`] = el; }} type="number" min="0" max={subject.practicalFullMarks} value={subjectRow.practical} disabled={bulkLoading} onKeyDown={(e) => handleBulkKeyDown(e, rowIndex, subjectIndex, 'practical')} onChange={(e) => handleBulkMarkChange(student._id, subject.subjectName, 'practical', e.target.value, e.currentTarget)} className={markInputClass} />
                                     </td>
                                   )}
                                   <td className="px-3 py-3 text-center font-bold text-gray-700">{Number(subjectRow.theory || 0) + Number(subjectRow.practical || 0)}</td>
@@ -591,7 +820,9 @@ const MarksEntry = () => {
               </div>
             )}
 
-            <SubmitButton disabled={!selectedExam || !selectedClass || selectedBulkSubjects.length === 0 || submitting} submitting={submitting} text="Save Bulk Marks" />
+            {selectedSubjectConfigs.length > 0 && (
+              <SubmitButton disabled={!selectedExam || !selectedClass || selectedBulkSubjects.length === 0 || submitting || bulkLoading} submitting={submitting} text="Save Bulk Marks" />
+            )}
           </form>
         )}
       </div>
@@ -634,8 +865,8 @@ const MarksTable = ({ marks, onChange }) => (
       <thead>
         <tr className="bg-gray-50 border-b border-gray-100">
           <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Subject</th>
-          <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Theory</th>
-          <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Practical</th>
+          <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Theory<br />Full / Pass</th>
+          <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Practical<br />Full / Pass</th>
           <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
           <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Full</th>
           <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Pass</th>
@@ -644,12 +875,20 @@ const MarksTable = ({ marks, onChange }) => (
       <tbody className="divide-y divide-gray-50">
         {marks.map((mark, index) => {
           const total = mark.theory + mark.practical;
-          const passed = total >= mark.passMarks;
+          const passed = mark.hasPractical
+            ? mark.theory >= mark.theoryPassMarks && mark.practical >= mark.practicalPassMarks
+            : total >= mark.passMarks;
           return (
             <tr key={mark.subject} className="hover:bg-gray-50">
               <td className="px-5 py-3.5 font-medium text-gray-800">{mark.subject}</td>
-              <td className="px-5 py-3.5 text-center"><input type="number" min="0" max={mark.hasPractical ? mark.theoryFullMarks : mark.fullMarks} value={mark.theory} onChange={(e) => onChange(index, 'theory', e.target.value)} className={markInputClass} /></td>
-              <td className="px-5 py-3.5 text-center"><input type="number" min="0" max={mark.practicalFullMarks} value={mark.practical} disabled={!mark.hasPractical} onChange={(e) => onChange(index, 'practical', e.target.value)} className={markInputClass} /></td>
+              <td className="px-5 py-3.5 text-center">
+                <input type="number" min="0" max={mark.hasPractical ? mark.theoryFullMarks : mark.fullMarks} value={mark.theory} onChange={(e) => onChange(index, 'theory', e.target.value, e.currentTarget)} className={markInputClass} />
+                <p className="mt-1 text-[10px] text-gray-400">{mark.hasPractical ? mark.theoryFullMarks : mark.fullMarks} / {mark.hasPractical ? mark.theoryPassMarks : mark.passMarks}</p>
+              </td>
+              <td className="px-5 py-3.5 text-center">
+                <input type="number" min="0" max={mark.practicalFullMarks} value={mark.practical} disabled={!mark.hasPractical} onChange={(e) => onChange(index, 'practical', e.target.value, e.currentTarget)} className={markInputClass} />
+                <p className="mt-1 text-[10px] text-gray-400">{mark.hasPractical ? `${mark.practicalFullMarks} / ${mark.practicalPassMarks}` : '-'}</p>
+              </td>
               <td className="px-5 py-3.5 text-center"><span className={`font-bold text-base ${passed ? 'text-green-600' : 'text-red-500'}`}>{total}</span></td>
               <td className="px-5 py-3.5 text-center text-gray-500">{mark.fullMarks}</td>
               <td className="px-5 py-3.5 text-center text-gray-500">{mark.passMarks}</td>
@@ -668,4 +907,3 @@ const SubmitButton = ({ disabled, submitting, text }) => (
 );
 
 export default MarksEntry;
-

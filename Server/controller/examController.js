@@ -1,6 +1,10 @@
 import Exam from "../model/examModel.js";
-import Subject from "../model/SubjectModel.js";
+import ClassSubject from "../model/ClassSubjectModel.js";
 import AcademicYear from "../model/AcademicYearModel.js";
+import { mapAssignedSubjectsToExam } from "../utils/examSubjects.js";
+import { buildExamCopyData } from "../utils/examCopy.js";
+
+class ClassSubjectAssignmentError extends Error {}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -21,6 +25,16 @@ const validateSubjects = (subjects) => {
             return `Pass marks cannot be negative (subject: ${s.subjectName})`;
         if (s.passMarks > s.fullMarks)
             return `Pass marks cannot exceed full marks (subject: ${s.subjectName})`;
+        if (s.hasPractical) {
+            if (!s.theoryFullMarks || s.theoryFullMarks <= 0)
+                return `Theory full marks must be greater than 0 (subject: ${s.subjectName})`;
+            if (s.theoryPassMarks == null || s.theoryPassMarks < 0 || s.theoryPassMarks > s.theoryFullMarks)
+                return `Theory pass marks must be between 0 and theory full marks (subject: ${s.subjectName})`;
+            if (!s.practicalFullMarks || s.practicalFullMarks <= 0)
+                return `Practical full marks must be greater than 0 (subject: ${s.subjectName})`;
+            if (s.practicalPassMarks == null || s.practicalPassMarks < 0 || s.practicalPassMarks > s.practicalFullMarks)
+                return `Practical pass marks must be between 0 and practical full marks (subject: ${s.subjectName})`;
+        }
     }
     return null;
 };
@@ -31,31 +45,47 @@ const validateSubjects = (subjects) => {
  */
 const buildClassConfigs = async (classNames, subjectSelectionMode, subjectsPayload) => {
     const configs = [];
+    let assignmentsByClass = new Map();
+
+    if (subjectSelectionMode === "allSubjects") {
+        const assignments = await ClassSubject.find({ className: { $in: classNames } });
+        assignmentsByClass = new Map(
+            assignments.map((assignment) => [assignment.className, assignment])
+        );
+        const unassignedClasses = classNames.filter((name) =>
+            !mapAssignedSubjectsToExam(assignmentsByClass.get(name)?.subjects || []).length
+        );
+        if (unassignedClasses.length) {
+            throw new ClassSubjectAssignmentError(
+                `No subjects are assigned to: ${unassignedClasses.join(", ")}. Assign subjects to each class before creating this exam.`
+            );
+        }
+    }
 
     for (const className of classNames) {
         let subjects;
 
         if (subjectSelectionMode === "allSubjects") {
-            // Load all global subjects and map to config shape
-            const allSubjects = await Subject.find().sort({ subjectName: 1 });
-            subjects = allSubjects.map((s) => ({
-                subjectName: s.subjectName,
-                fullMarks: 100,
-                passMarks: 40,
-                theoryFullMarks: 0,
-                practicalFullMarks: 0,
-                hasPractical: false,
-            }));
+            subjects = mapAssignedSubjectsToExam(assignmentsByClass.get(className)?.subjects || []);
         } else {
             // selectedSubjects or customSubjects — use what admin sent
-            subjects = (subjectsPayload || []).map((s) => ({
-                subjectName: s.subjectName,
-                fullMarks: s.fullMarks || 100,
-                passMarks: s.passMarks || 40,
-                theoryFullMarks: s.theoryFullMarks || 0,
-                practicalFullMarks: s.practicalFullMarks || 0,
-                hasPractical: s.hasPractical || false,
-            }));
+            subjects = (subjectsPayload || []).map((s) => {
+                const hasPractical = Boolean(s.hasPractical);
+                const theoryFullMarks = Number(s.theoryFullMarks ?? s.fullMarks ?? 100);
+                const theoryPassMarks = Number(s.theoryPassMarks ?? s.passMarks ?? 40);
+                const practicalFullMarks = hasPractical ? Number(s.practicalFullMarks ?? 0) : 0;
+                const practicalPassMarks = hasPractical ? Number(s.practicalPassMarks ?? 0) : 0;
+                return {
+                    subjectName: s.subjectName,
+                    fullMarks: hasPractical ? theoryFullMarks + practicalFullMarks : Number(s.fullMarks || 100),
+                    passMarks: hasPractical ? theoryPassMarks + practicalPassMarks : Number(s.passMarks || 40),
+                    theoryFullMarks,
+                    theoryPassMarks,
+                    practicalFullMarks,
+                    practicalPassMarks,
+                    hasPractical,
+                };
+            });
         }
 
         configs.push({
@@ -93,7 +123,7 @@ export const createExam = async (req, res) => {
         // ── Basic validation ──────────────────────────────────────────────────
         if (!examName || !examName.trim())
             return res.status(400).json({ success: false, message: "Exam name is required" });
-        
+
         if (!applicableClasses || applicableClasses.length === 0)
             return res.status(400).json({ success: false, message: "At least one class is required" });
 
@@ -167,6 +197,8 @@ export const createExam = async (req, res) => {
 
         res.status(201).json({ success: true, message: "Exam created successfully", exam });
     } catch (error) {
+        if (error instanceof ClassSubjectAssignmentError)
+            return res.status(400).json({ success: false, message: error.message });
         if (error.code === 11000)
             return res.status(400).json({
                 success: false,
@@ -196,6 +228,13 @@ export const createBulkExam = async (req, res) => {
                 success: false,
                 message: "examName and allClassNames are required",
             });
+
+        if (subjectSelectionMode === "customSubjects") {
+            const subjectError = validateSubjects(subjects);
+            if (subjectError) {
+                return res.status(400).json({ success: false, message: subjectError });
+            }
+        }
 
         const activeYear = await AcademicYear.findOne({ isActive: true });
         if (!activeYear) {
@@ -241,7 +280,46 @@ export const createBulkExam = async (req, res) => {
             exam,
         });
     } catch (error) {
+        if (error instanceof ClassSubjectAssignmentError)
+            return res.status(400).json({ success: false, message: error.message });
         res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const copyExam = async (req, res) => {
+    try {
+        const examName = String(req.body.examName || "").trim();
+        if (!examName) {
+            return res.status(400).json({ success: false, message: "New exam name is required." });
+        }
+
+        const source = await Exam.findById(req.params.id);
+        if (!source) {
+            return res.status(404).json({ success: false, message: "Exam to copy was not found." });
+        }
+
+        const duplicate = await Exam.findOne({ examName, academicYear: source.academicYear });
+        if (duplicate) {
+            return res.status(400).json({
+                success: false,
+                message: `Exam "${examName}" already exists for academic year ${source.academicYear}.`,
+            });
+        }
+
+        const exam = await Exam.create(buildExamCopyData(source, examName, req.admin._id));
+        return res.status(201).json({
+            success: true,
+            message: `Exam copied as "${exam.examName}".`,
+            exam,
+        });
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: "An exam with this name already exists for this academic year.",
+            });
+        }
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 

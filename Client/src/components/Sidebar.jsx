@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useId, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import {
@@ -10,7 +10,6 @@ import {
   FileText,
   ClipboardList,
   Megaphone,
-  TrendingUp,
   LogOut,
   Menu,
   X,
@@ -20,6 +19,7 @@ import {
   Building2,
   Settings,
   UserCheck,
+  ChevronDown,
 } from 'lucide-react';
 
 const navItems = [
@@ -28,11 +28,24 @@ const navItems = [
   { path: '/students', label: 'Students', icon: Users },
   { path: '/classes', label: 'Classes', icon: Building2 },
   { path: '/subjects', label: 'Subjects', icon: BookMarked },
-  { path: '/exams', label: 'Exams', icon: BookOpen },
-  { path: '/evaluation', label: 'Evaluation', icon: TrendingUp },
-  { path: '/marks-entry', label: 'Marks Entry', icon: ClipboardList },
-  { path: '/marksheets', label: 'Marksheets', icon: FileText },
-  { path: '/promotion', label: 'Promotion', icon: TrendingUp },
+  {
+    label: 'Examinations',
+    icon: BookOpen,
+    children: [
+      { path: '/exams', label: 'Exams' },
+      { path: '/marks-entry', label: 'Marks Entry' },
+      { path: '/promotion', label: 'Promotion' },
+    ],
+  },
+  {
+    label: 'Reports',
+    icon: FileText,
+    children: [
+      { path: '/reports/tabulation', label: 'Tabulation' },
+      { path: '/marksheets', label: 'Marksheets' },
+      { path: '/evaluation', label: 'Analysis' },
+    ],
+  },
   { path: '/teachers', label: 'Teachers', icon: UserCheck },
   { path: '/attendance', label: 'Attendance', icon: ClipboardList },
   { path: '/notices', label: 'Notices', icon: Megaphone },
@@ -47,10 +60,14 @@ const getImageUrl = (url) => {
 
 const Sidebar = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const sidebarId = useId();
   const { admin, logout } = useAuth();
   const { settings } = useSettings();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(null);
+  const [examinationsOpen, setExaminationsOpen] = useState(null);
 
   const handleLogout = async () => {
     await logout();
@@ -72,7 +89,7 @@ const Sidebar = () => {
             {collapsed ? <ChevronRight size={12} className="text-indigo-600" /> : <X size={12} className="text-indigo-600" />}
           </div>
         </button>
-        <SidebarContent collapsed={collapsed} settings={settings} admin={admin} handleLogout={handleLogout} />
+        <SidebarContent collapsed={collapsed} setCollapsed={setCollapsed} settings={settings} admin={admin} handleLogout={handleLogout} onNavigate={() => setMobileOpen(false)} pathname={pathname} reportsOpen={reportsOpen} setReportsOpen={setReportsOpen} reportsMenuId={`${sidebarId}-desktop-reports`} examinationsOpen={examinationsOpen} setExaminationsOpen={setExaminationsOpen} examinationsMenuId={`${sidebarId}-desktop-examinations`} />
       </aside>
 
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-indigo-800 flex items-center justify-between px-4 h-14 shadow-lg">
@@ -96,7 +113,7 @@ const Sidebar = () => {
             <button onClick={() => setMobileOpen(false)} className="absolute top-4 right-4 p-2 text-white hover:bg-indigo-700 rounded-lg">
               <X size={22} />
             </button>
-            <SidebarContent collapsed={false} settings={settings} admin={admin} handleLogout={handleLogout} />
+            <SidebarContent collapsed={false} setCollapsed={setCollapsed} settings={settings} admin={admin} handleLogout={handleLogout} onNavigate={() => setMobileOpen(false)} pathname={pathname} reportsOpen={reportsOpen} setReportsOpen={setReportsOpen} reportsMenuId={`${sidebarId}-mobile-reports`} examinationsOpen={examinationsOpen} setExaminationsOpen={setExaminationsOpen} examinationsMenuId={`${sidebarId}-mobile-examinations`} />
           </aside>
         </div>
       )}
@@ -104,7 +121,7 @@ const Sidebar = () => {
   );
 };
 
-const SidebarContent = ({ collapsed, settings, admin, handleLogout }) => (
+const SidebarContent = ({ collapsed, setCollapsed, settings, admin, handleLogout, onNavigate, pathname, reportsOpen, setReportsOpen, reportsMenuId, examinationsOpen, setExaminationsOpen, examinationsMenuId }) => (
   <div className="flex flex-col h-full">
     <div className={`flex items-center gap-3 px-4 py-5 border-b border-indigo-700 ${collapsed ? 'justify-center' : ''}`}>
       <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow">
@@ -119,12 +136,75 @@ const SidebarContent = ({ collapsed, settings, admin, handleLogout }) => (
     </div>
 
     <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-      {navItems.map(({ path, label, icon: Icon }) => {
-        const active = window.location.pathname === path || window.location.pathname.startsWith(path + '/');
+      {navItems.map(({ path, label, icon: Icon, children }) => {
+        if (children) {
+          const childActive = children.some((child) =>
+            pathname === child.path || pathname.startsWith(`${child.path}/`)
+          );
+          const isExaminations = label === 'Examinations';
+          const openState = isExaminations ? examinationsOpen : reportsOpen;
+          const setOpenState = isExaminations ? setExaminationsOpen : setReportsOpen;
+          const menuId = isExaminations ? examinationsMenuId : reportsMenuId;
+          const expanded = childActive || (openState ?? false);
+          return (
+            <div key={label}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (collapsed) {
+                    setCollapsed(false);
+                    setOpenState(true);
+                    return;
+                  }
+                  setOpenState(!expanded);
+                }}
+                className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group relative ${
+                  childActive ? 'bg-indigo-700 text-white font-semibold' : 'text-indigo-100 hover:bg-indigo-700 hover:text-white'
+                } ${collapsed ? 'justify-center' : ''}`}
+                aria-expanded={expanded}
+                aria-controls={menuId}
+              >
+                <Icon size={20} className="flex-shrink-0" />
+                {!collapsed && <><span className="flex-1 text-left text-sm">{label}</span><ChevronDown size={16} className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} /></>}
+                {collapsed && <span className="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">{label}</span>}
+              </button>
+              <div
+                id={menuId}
+                aria-hidden={!expanded || collapsed}
+                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                  expanded && !collapsed ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                }`}
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="ml-5 mt-1 space-y-1 border-l border-indigo-600 pl-3">
+                    {children.map((child) => {
+                      const activeChild = pathname === child.path || pathname.startsWith(`${child.path}/`);
+                      return (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          onClick={onNavigate}
+                          tabIndex={expanded && !collapsed ? 0 : -1}
+                          className={`block rounded-lg px-3 py-2 text-sm transition-all duration-150 ${
+                            activeChild ? 'bg-white text-indigo-700 shadow font-semibold' : 'text-indigo-200 hover:bg-indigo-700 hover:text-white'
+                          }`}
+                        >
+                          {child.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        const active = pathname === path || pathname.startsWith(path + '/');
         return (
           <Link
             key={path}
             to={path}
+            onClick={onNavigate}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group relative
               ${
                 active

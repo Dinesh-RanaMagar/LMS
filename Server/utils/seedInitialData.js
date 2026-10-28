@@ -37,15 +37,23 @@ const createDefaultAcademicYear = async () => {
 };
 
 const createDefaultClasses = async () => {
-  const count = await ClassModel.countDocuments();
-  if (count > 0) return;
-
   for (const classData of defaultClasses) {
-    await ClassModel.create({
-      ...classData,
+    const insertFields = {
+      className: classData.className,
+      order: classData.order,
       description: `${classData.className} class`,
-    });
-    console.log(`Created class: ${classData.className}`);
+    };
+    if (classData.order < 8) insertFields.sections = classData.sections;
+
+    const result = await ClassModel.updateOne(
+      { className: classData.className },
+      {
+        $setOnInsert: insertFields,
+        ...(classData.order >= 8 ? { $set: { sections: ['A', 'B'] } } : {}),
+      },
+      { upsert: true },
+    );
+    if (result.upsertedCount) console.log(`Created class: ${classData.className}`);
   }
 };
 

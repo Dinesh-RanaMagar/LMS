@@ -199,14 +199,28 @@ const CreateExam = () => {
             return false;
           }
 
-          if (!s.fullMarks || s.fullMarks <= 0) {
+          if (!s.hasPractical && (!s.fullMarks || s.fullMarks <= 0)) {
             setError("Full marks must be greater than 0");
             return false;
           }
 
-          if (s.passMarks > s.fullMarks) {
+          if (!s.hasPractical && s.passMarks > s.fullMarks) {
             setError("Pass marks cannot exceed full marks");
             return false;
+          }
+          if (s.hasPractical) {
+            if (!s.theoryFullMarks || s.theoryFullMarks <= 0 || !s.practicalFullMarks || s.practicalFullMarks <= 0) {
+              setError(`${s.subjectName}: Theory and practical full marks must be greater than 0`);
+              return false;
+            }
+            if (s.theoryPassMarks < 0 || s.theoryPassMarks > s.theoryFullMarks) {
+              setError(`${s.subjectName}: Theory pass marks must be between 0 and theory full marks`);
+              return false;
+            }
+            if (s.practicalPassMarks < 0 || s.practicalPassMarks > s.practicalFullMarks) {
+              setError(`${s.subjectName}: Practical pass marks must be between 0 and practical full marks`);
+              return false;
+            }
           }
         }
       }
@@ -238,7 +252,19 @@ const CreateExam = () => {
       }));
     }
 
-    return form.customSubjects;
+    return form.customSubjects.map((subject) => subject.hasPractical
+      ? {
+          ...subject,
+          fullMarks: Number(subject.theoryFullMarks) + Number(subject.practicalFullMarks),
+          passMarks: Number(subject.theoryPassMarks) + Number(subject.practicalPassMarks),
+        }
+      : {
+          ...subject,
+          theoryFullMarks: Number(subject.fullMarks),
+          theoryPassMarks: Number(subject.passMarks),
+          practicalFullMarks: 0,
+          practicalPassMarks: 0,
+        });
   };
 
   const handleSubmit = async () => {
@@ -329,7 +355,9 @@ const CreateExam = () => {
         fullMarks: 100,
         passMarks: 40,
         theoryFullMarks: 100,
+        theoryPassMarks: 40,
         practicalFullMarks: 0,
+        practicalPassMarks: 0,
         hasPractical: false,
       },
     ]);
@@ -584,25 +612,31 @@ const CreateExam = () => {
                       />
 
                       <div className="grid sm:grid-cols-2 gap-3">
-                        <input
-                          className={ic}
-                          type="number"
-                          placeholder="Full Marks"
-                          value={sub.fullMarks}
-                          onChange={(e) =>
-                            updateCustomSubject(idx, "fullMarks", e.target.value)
-                          }
-                        />
-
-                        <input
-                          className={ic}
-                          type="number"
-                          placeholder="Pass Marks"
-                          value={sub.passMarks}
-                          onChange={(e) =>
-                            updateCustomSubject(idx, "passMarks", e.target.value)
-                          }
-                        />
+                        {!sub.hasPractical ? (
+                          <>
+                            <input
+                              className={ic}
+                              type="number"
+                              placeholder="Full Marks"
+                              value={sub.fullMarks}
+                              onChange={(e) => updateCustomSubject(idx, "fullMarks", e.target.value)}
+                            />
+                            <input
+                              className={ic}
+                              type="number"
+                              placeholder="Pass Marks"
+                              value={sub.passMarks}
+                              onChange={(e) => updateCustomSubject(idx, "passMarks", e.target.value)}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <input className={ic} type="number" placeholder="Theory Full Marks" value={sub.theoryFullMarks} onChange={(e) => updateCustomSubject(idx, "theoryFullMarks", e.target.value)} />
+                            <input className={ic} type="number" placeholder="Theory Pass Marks" value={sub.theoryPassMarks} onChange={(e) => updateCustomSubject(idx, "theoryPassMarks", e.target.value)} />
+                            <input className={ic} type="number" placeholder="Practical Full Marks" value={sub.practicalFullMarks} onChange={(e) => updateCustomSubject(idx, "practicalFullMarks", e.target.value)} />
+                            <input className={ic} type="number" placeholder="Practical Pass Marks" value={sub.practicalPassMarks} onChange={(e) => updateCustomSubject(idx, "practicalPassMarks", e.target.value)} />
+                          </>
+                        )}
                       </div>
 
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -616,37 +650,6 @@ const CreateExam = () => {
                         Has Practical
                       </label>
 
-                      {sub.hasPractical && (
-                        <div className="grid sm:grid-cols-2 gap-3">
-                          <input
-                            className={ic}
-                            type="number"
-                            placeholder="Theory Full Marks"
-                            value={sub.theoryFullMarks}
-                            onChange={(e) =>
-                              updateCustomSubject(
-                                idx,
-                                "theoryFullMarks",
-                                e.target.value
-                              )
-                            }
-                          />
-
-                          <input
-                            className={ic}
-                            type="number"
-                            placeholder="Practical Full Marks"
-                            value={sub.practicalFullMarks}
-                            onChange={(e) =>
-                              updateCustomSubject(
-                                idx,
-                                "practicalFullMarks",
-                                e.target.value
-                              )
-                            }
-                          />
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

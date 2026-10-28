@@ -21,6 +21,69 @@ const removeEmptyOptionalFields = (data) =>
     Object.entries(data).filter(([, value]) => !(typeof value === 'string' && value.trim() === ''))
   );
 
+const legacyFieldGroups = [
+  {
+    title: 'School Registration Details',
+    fields: [
+      ['legacyId', 'Legacy ID (source only)'],
+      ['boardRegdNo', 'Board Registration No.'],
+      ['cardNo', 'Card No.'],
+      ['enrollNo', 'Enrollment No.'],
+      ['iemisCode', 'IEMIS Code'],
+      ['studentType', 'Student Type'],
+      ['isNew', 'New Student (Yes/No)'],
+      ['school', 'Previous / Source School'],
+    ],
+  },
+  {
+    title: 'Family Contact Details',
+    fields: [
+      ['fatherContactNo', "Father's Contact No."],
+      ['fatherEmail', "Father's Email"],
+      ['fatherOccupation', "Father's Occupation"],
+      ['motherContactNo', "Mother's Contact No."],
+      ['motherEmail', "Mother's Email"],
+      ['motherOccupation', "Mother's Occupation"],
+      ['guardianContactNo', "Guardian's Contact No."],
+      ['guardianEmail', "Guardian's Email"],
+      ['guardianOccupation', "Guardian's Occupation"],
+      ['email', "Student's Email"],
+    ],
+  },
+  {
+    title: 'Address & Admission',
+    fields: [
+      ['currentAddress', 'Current Address'],
+      ['province', 'Province / State'],
+      ['district', 'District'],
+      ['localLevel', 'Local Level'],
+      ['village', 'Village'],
+      ['admissionDateBs', 'Admission Date (BS)'],
+      ['admissionDateAd', 'Admission Date (AD)'],
+    ],
+  },
+  {
+    title: 'Additional Student Details',
+    fields: [
+      ['caste', 'Caste'],
+      ['houseName', 'House Name'],
+      ['medium', 'Medium'],
+      ['ageRange', 'Age Range'],
+      ['ledgerPanaNo', 'Ledger Page No.'],
+      ['citizenshipNo', 'Citizenship No.'],
+      ['motherTongue', 'Mother Tongue'],
+      ['bloodGroup', 'Blood Group'],
+      ['height', 'Height'],
+      ['weight', 'Weight'],
+      ['physicalDisability', 'Physical Disability'],
+      ['aim', 'Aim'],
+      ['birthCertificateNo', 'Birth Certificate No.'],
+      ['ageDetails', 'Age Details'],
+      ['remarks', 'Remarks'],
+    ],
+  },
+];
+
 const AddEditStudent = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -28,7 +91,8 @@ const AddEditStudent = () => {
 
   const [formData, setFormData] = useState({
     name: '', className: '', section: '', rollNo: '',
-    emisCode: '', studentCode: '', symbolNo: '', dob: '', fatherName: '', motherName: '', guardianName: '', mobileNumber: '', address: '',
+    emisCode: '', studentCode: '', symbolNo: '', dob: '', dobBs: '', fatherName: '', motherName: '', guardianName: '', mobileNumber: '', address: '',
+    gender: '', legacyDetails: {},
   });
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
@@ -77,11 +141,14 @@ const AddEditStudent = () => {
         studentCode: student.studentCode || '',
         symbolNo: student.symbolNo || '',
         dob: student.dob ? student.dob.split('T')[0] : '',
+        dobBs: student.dobBs || '',
         fatherName: student.fatherName || '',
         motherName: student.motherName || '',
         guardianName: student.guardianName || '',
         mobileNumber: student.mobileNumber || '',
         address: student.address || '',
+        gender: student.gender || '',
+        legacyDetails: student.legacyDetails || {},
       });
     } catch (err) {
       setError('Failed to load student data');
@@ -112,6 +179,13 @@ const AddEditStudent = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => {
+      if (name.startsWith('legacyDetails.')) {
+        const field = name.slice('legacyDetails.'.length);
+        return {
+          ...prev,
+          legacyDetails: { ...prev.legacyDetails, [field]: value },
+        };
+      }
       if (name === 'className') {
         return { ...prev, className: value, section: '' };
       }
@@ -131,7 +205,10 @@ const AddEditStudent = () => {
     }
     setSubmitting(true);
     try {
-      const { ...payload } = removeEmptyOptionalFields(formData);
+      const payload = removeEmptyOptionalFields({
+        ...formData,
+        legacyDetails: removeEmptyOptionalFields(formData.legacyDetails),
+      });
       delete payload.studentCode;
       if (isEdit) {
         await studentAPI.update(id, payload);
@@ -163,7 +240,7 @@ const AddEditStudent = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {isEdit ? 'Edit Student' : 'Add New Student'}
+              {isEdit ? 'Edit Student' : 'Register New Student'}
             </h1>
             <p className="text-gray-400 text-sm">
               {isEdit ? 'Update student information' : 'Fill in the details to register a new student'}
@@ -239,9 +316,9 @@ const AddEditStudent = () => {
                     <p className="text-xs text-indigo-600 mt-1">Suggested roll number: {suggestedRollNo}</p>
                   )}
                 </Field>
-                <Field label="EMIS Code">
+                <Field label="Registration Number">
                   <input type="text" name="emisCode" value={formData.emisCode} onChange={handleChange}
-                    className={inputClass} placeholder="EMIS code" />
+                    className={inputClass} placeholder="Registration number" />
                 </Field>
                 {isEdit && (
                   <Field label="Student Code">
@@ -253,9 +330,31 @@ const AddEditStudent = () => {
                   <input type="text" name="symbolNo" value={formData.symbolNo} onChange={handleChange}
                     className={inputClass} placeholder="Symbol number" />
                 </Field>
+                <Field label="Board Registration Number">
+                  <input
+                    type="text"
+                    name="legacyDetails.boardRegdNo"
+                    value={formData.legacyDetails.boardRegdNo || ''}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Board registration number"
+                  />
+                </Field>
+                <Field label="Gender">
+                  <select name="gender" value={formData.gender} onChange={handleChange} className={inputClass}>
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </Field>
                 <Field label="Date of Birth">
                   <input type="date" name="dob" value={formData.dob} onChange={handleChange}
                     className={inputClass} />
+                </Field>
+                <Field label="Date of Birth (BS)">
+                  <input type="text" name="dobBs" value={formData.dobBs} onChange={handleChange}
+                    placeholder="YYYY-MM-DD" className={inputClass} />
                 </Field>
               </div>
             </div>
@@ -278,18 +377,49 @@ const AddEditStudent = () => {
                   <input type="text" name="guardianName" value={formData.guardianName} onChange={handleChange}
                     className={inputClass} placeholder="Guardian's full name" />
                 </Field>
-                <Field label="Mobile Number">
+                <Field label="Contact Number">
                   <input type="tel" name="mobileNumber" value={formData.mobileNumber} onChange={handleChange}
-                    className={inputClass} placeholder="Mobile number" />
+                    className={inputClass} placeholder="Student contact number" />
                 </Field>
               </div>
               <div className="mt-4">
-                <Field label="Address">
+                <Field label="Permanent Address">
                   <textarea name="address" value={formData.address} onChange={handleChange}
                     rows="3" className={inputClass} placeholder="Student's home address" />
                 </Field>
               </div>
             </div>
+
+            {legacyFieldGroups.map((group) => (
+              <div key={group.title} className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {group.title}
+                </h2>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {group.fields.map(([field, label]) => (
+                    <Field key={field} label={label}>
+                      {field === 'remarks' ? (
+                        <textarea
+                          name={`legacyDetails.${field}`}
+                          value={formData.legacyDetails[field] || ''}
+                          onChange={handleChange}
+                          rows="3"
+                          className={inputClass}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          name={`legacyDetails.${field}`}
+                          value={formData.legacyDetails[field] || ''}
+                          onChange={handleChange}
+                          className={inputClass}
+                        />
+                      )}
+                    </Field>
+                  ))}
+                </div>
+              </div>
+            ))}
 
             {/* Actions */}
             <div className="flex gap-3">
@@ -303,7 +433,7 @@ const AddEditStudent = () => {
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     Saving...
                   </>
-                ) : isEdit ? 'Update Student' : 'Add Student'}
+                ) : isEdit ? 'Update Student' : 'Register Student'}
               </button>
               <button
                 type="button"

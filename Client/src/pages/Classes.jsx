@@ -13,6 +13,11 @@ import { classAPI, subjectAPI, classSubjectAPI } from "../services/api";
 
 const inputClass =
   "w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50 focus:bg-white";
+const naturalSort = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+const compareClasses = (first, second) =>
+  (Number(first.order) || 0) - (Number(second.order) || 0) ||
+  naturalSort.compare(first.className || "", second.className || "");
 
 function ClassesSubjects() {
   const [classes, setClasses] = useState([]);
@@ -281,13 +286,17 @@ function ClassesSubjects() {
     return assignment?.subjects || [];
   };
 
+  const orderedClasses = [...classes].sort(compareClasses);
+  const orderedSubjects = [...subjects].sort((first, second) =>
+    naturalSort.compare(first.subjectName || "", second.subjectName || "")
+  );
   const allSections = Array.from(
     new Set(classes.flatMap((cls) => cls.sections || []))
   )
     .filter(Boolean)
-    .sort();
+    .sort(naturalSort.compare);
 
-  const filteredClasses = classes.filter((cls) => {
+  const filteredClasses = orderedClasses.filter((cls) => {
     const matchesClass = selectedClassFilter
       ? cls.className === selectedClassFilter
       : true;
@@ -359,7 +368,7 @@ function ClassesSubjects() {
                   className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50"
                 >
                   <option value="">Filter by class</option>
-                  {classes.map((cls) => (
+                  {orderedClasses.map((cls) => (
                     <option key={cls._id} value={cls.className}>
                       {cls.className}
                     </option>
@@ -406,7 +415,7 @@ function ClassesSubjects() {
                     key={cls._id}
                     className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
                   >
-                    <div className="p-5 border-b border-gray-100 flex justify-between gap-4">
+                    <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:justify-between gap-4">
                       <div>
                         <h3 className="text-xl font-bold text-gray-900">
                           {cls.className}
@@ -416,7 +425,7 @@ function ClassesSubjects() {
                         </p>
 
                         <div className="flex gap-2 mt-2 flex-wrap">
-                          {(cls.sections || []).map((sec) => (
+                          {[...(cls.sections || [])].sort(naturalSort.compare).map((sec) => (
                             <span
                               key={sec}
                               className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-medium"
@@ -432,7 +441,7 @@ function ClassesSubjects() {
                         </p>
                       </div>
 
-                      <div className="flex gap-2 h-fit">
+                      <div className="flex gap-2 h-fit flex-wrap">
                         <button
                           onClick={() => openAssignModal(cls.className)}
                           className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-sm font-semibold"
@@ -463,7 +472,12 @@ function ClassesSubjects() {
                         </p>
                       ) : (
                         <div className="grid md:grid-cols-2 gap-3">
-                          {assigned.map((item, index) => (
+                          {[...assigned].sort((first, second) =>
+                            naturalSort.compare(
+                              first.subjectName || first.subject?.subjectName || "",
+                              second.subjectName || second.subject?.subjectName || ""
+                            )
+                          ).map((item, index) => (
                             <div
                               key={index}
                               className="border border-gray-200 rounded-xl p-4"
@@ -514,7 +528,7 @@ function ClassesSubjects() {
                   No subjects created yet.
                 </p>
               ) : (
-                subjects.map((subject) => (
+                orderedSubjects.map((subject) => (
                   <div
                     key={subject._id}
                     className="flex items-center justify-between border border-gray-100 rounded-xl p-3"
@@ -695,6 +709,10 @@ function ClassesSubjects() {
                           <option value="">Select source class</option>
                           {assignments
                             .filter((a) => a.className !== assignForm.className && a.subjects?.length > 0)
+                            .sort((first, second) => compareClasses(
+                              orderedClasses.find((cls) => cls.className === first.className) || { className: first.className },
+                              orderedClasses.find((cls) => cls.className === second.className) || { className: second.className }
+                            ))
                             .map((assignment) => (
                               <option key={assignment.className} value={assignment.className}>
                                 {assignment.className} ({assignment.subjects.length} subjects)
@@ -723,7 +741,7 @@ function ClassesSubjects() {
                           onClick={() =>
                             setAssignForm((prev) => ({
                               ...prev,
-                              subjects: subjects.map((s) => ({
+                              subjects: orderedSubjects.map((s) => ({
                                 subject: s._id,
                                 subjectName: s.subjectName,
                                 fullMarks: 100,
@@ -749,7 +767,7 @@ function ClassesSubjects() {
                     </div>
                   </div>
                   <div className="space-y-3">
-                    {subjects.map((subject) => {
+                    {orderedSubjects.map((subject) => {
                       const selected = assignForm.subjects.find(
                         (s) => s.subject === subject._id
                       );

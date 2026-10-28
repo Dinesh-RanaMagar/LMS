@@ -5,7 +5,7 @@ import Layout from '../components/Layout';
 import {
   Plus, Search, BookOpen, Trash2, Edit2, Eye,
   Lock, Unlock, CheckCircle, Clock, AlertCircle,
-  Filter, X, ChevronDown,
+  Filter, X, ChevronDown, Copy, RefreshCw,
 } from 'lucide-react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -34,6 +34,8 @@ const TYPE_COLOR = {
   're-exam': 'bg-orange-50 text-orange-700 border-orange-200',
   internal:  'bg-pink-50 text-pink-700 border-pink-200',
 };
+
+const createNumericCaptcha = () => String(Math.floor(1000 + Math.random() * 9000));
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -86,6 +88,13 @@ const Exams = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [lockTarget, setLockTarget] = useState(null);
   const [unlockTarget, setUnlockTarget] = useState(null);
+  const [showCreateOptions, setShowCreateOptions] = useState(false);
+  const [copySourceId, setCopySourceId] = useState('');
+  const [copyExamName, setCopyExamName] = useState('');
+  const [copyCaptcha, setCopyCaptcha] = useState('');
+  const [copyCaptchaAnswer, setCopyCaptchaAnswer] = useState('');
+  const [copyError, setCopyError] = useState('');
+  const [copyingExam, setCopyingExam] = useState(false);
 
   const fetchActiveYear = async () => {
     try {
@@ -130,6 +139,56 @@ const Exams = () => {
   }, [exams, search, filterYear, filterType, filterStatus]);
 
   const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
+
+  const openCopyExam = () => {
+    setShowCreateOptions(false);
+    setCopySourceId('');
+    setCopyExamName('');
+    setCopyCaptchaAnswer('');
+    setCopyError('');
+    setCopyCaptcha(createNumericCaptcha());
+  };
+
+  const handleCopySourceChange = (sourceId) => {
+    setCopySourceId(sourceId);
+    const sourceExam = exams.find((exam) => exam._id === sourceId);
+    setCopyExamName(sourceExam ? `${sourceExam.examName} (Copy)` : '');
+    setCopyError('');
+  };
+
+  const refreshCopyCaptcha = () => {
+    setCopyCaptcha(createNumericCaptcha());
+    setCopyCaptchaAnswer('');
+  };
+
+  const handleCopyExam = async (event) => {
+    event.preventDefault();
+    setCopyError('');
+    if (!copySourceId || !copyExamName.trim()) {
+      setCopyError('Select the exam to copy and enter a name for the new exam.');
+      return;
+    }
+    if (copyCaptchaAnswer !== copyCaptcha) {
+      setCopyError('The captcha does not match. Please try again.');
+      refreshCopyCaptcha();
+      return;
+    }
+
+    try {
+      setCopyingExam(true);
+      const response = await examAPI.copy(copySourceId, copyExamName.trim());
+      setExams((current) => [response.data.exam, ...current]);
+      setShowCreateOptions(false);
+      setCopySourceId('');
+      setCopyExamName('');
+      flash(response.data.message || 'Exam copied successfully.');
+    } catch (err) {
+      setCopyError(err.response?.data?.message || 'Failed to copy exam.');
+      refreshCopyCaptcha();
+    } finally {
+      setCopyingExam(false);
+    }
+  };
 
   const handleDelete = async () => {
     try {
@@ -198,7 +257,7 @@ const Exams = () => {
             </div>
           </div>
           <button
-            onClick={() => navigate('/exams/create')}
+            onClick={() => setShowCreateOptions(true)}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition font-medium text-sm shadow-sm"
           >
             <Plus size={18} /> Create Exam
@@ -289,6 +348,92 @@ const Exams = () => {
       </div>
 
       {/* ── Modals ── */}
+      {showCreateOptions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Create an exam</h2>
+                <p className="mt-1 text-sm text-gray-500">Choose how you want to get started.</p>
+              </div>
+              <button type="button" onClick={() => setShowCreateOptions(false)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => { setShowCreateOptions(false); navigate('/exams/create'); }}
+                className="flex w-full items-center gap-4 rounded-xl border border-gray-200 p-4 text-left transition hover:border-indigo-300 hover:bg-indigo-50"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"><Plus size={20} /></span>
+                <span>
+                  <span className="block text-sm font-semibold text-gray-900">Create New Exam</span>
+                  <span className="mt-0.5 block text-xs text-gray-500">Start with a blank exam setup.</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={openCopyExam}
+                className="flex w-full items-center gap-4 rounded-xl border border-gray-200 p-4 text-left transition hover:border-violet-300 hover:bg-violet-50"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700"><Copy size={19} /></span>
+                <span>
+                  <span className="block text-sm font-semibold text-gray-900">Copy Existing Exam</span>
+                  <span className="mt-0.5 block text-xs text-gray-500">Reuse an exam’s classes, subjects, and mark setup.</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {copyCaptcha && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <form onSubmit={handleCopyExam} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Copy Existing Exam</h2>
+                <p className="mt-1 text-sm text-gray-500">Copy the exam setup and give the new exam its own name.</p>
+              </div>
+              <button type="button" onClick={() => { setCopyCaptcha(''); setCopyError(''); }} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+                <X size={20} />
+              </button>
+            </div>
+            {copyError && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{copyError}</p>}
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="copy-exam-source" className="mb-1.5 block text-sm font-medium text-gray-700">Copy setup from</label>
+                <select id="copy-exam-source" value={copySourceId} onChange={(event) => handleCopySourceChange(event.target.value)} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                  <option value="">Select an exam...</option>
+                  {exams.map((exam) => <option key={exam._id} value={exam._id}>{exam.examName} ({exam.academicYear})</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="copy-exam-name" className="mb-1.5 block text-sm font-medium text-gray-700">New exam name</label>
+                <input id="copy-exam-name" type="text" value={copyExamName} onChange={(event) => setCopyExamName(event.target.value)} className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="For example, Second Term" required maxLength={100} />
+              </div>
+              <div>
+                <label htmlFor="copy-exam-captcha" className="mb-1.5 block text-sm font-medium text-gray-700">Enter the number shown to confirm</label>
+                <div className="flex items-center gap-2">
+                  <div aria-label={`Captcha number ${copyCaptcha}`} className="min-w-28 select-none rounded-lg border border-dashed border-indigo-300 bg-indigo-50 px-4 py-2 text-center font-mono text-xl font-bold tracking-[0.3em] text-indigo-800">
+                    {copyCaptcha}
+                  </div>
+                  <button type="button" onClick={refreshCopyCaptcha} className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50" aria-label="Generate new captcha" title="Generate new captcha">
+                    <RefreshCw size={17} />
+                  </button>
+                  <input id="copy-exam-captcha" type="text" inputMode="numeric" pattern="[0-9]*" value={copyCaptchaAnswer} onChange={(event) => setCopyCaptchaAnswer(event.target.value.replace(/\D/g, ''))} className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Captcha" required autoComplete="off" />
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => { setCopyCaptcha(''); setCopyError(''); }} className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button type="submit" disabled={copyingExam || !copySourceId || !copyExamName.trim() || !copyCaptchaAnswer} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                <Copy size={16} />{copyingExam ? 'Copying...' : 'Copy Exam'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       {deleteTarget && (
         <ConfirmModal
           title="Delete Exam?"
