@@ -45,6 +45,14 @@ const DEFAULT_GRADING_TABLE = [
 
 const classNameSort = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
+// "Class 10" already says "class", so the redundant word is dropped: "GRADE 10".
+// Whole word only — "Nursery" and "KG" are left untouched.
+const getGradeLabel = (className) => {
+  if (!className) return '';
+  const stripped = String(className).replace(/\bclass(?![a-z])/gi, '').replace(/\s+/g, ' ').trim();
+  return `GRADE ${stripped || className}`;
+};
+
 const buildGradingRows = (settings) => {
   if (!settings?.gradingSystem?.length) return DEFAULT_GRADING_TABLE;
   const sorted = [...settings.gradingSystem].sort((a, b) => b.minPercentage - a.minPercentage);
@@ -215,7 +223,7 @@ const buildGradeSheetHTML = (marksheet, settings) => {
         </div>
         ${addr ? `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#b91c1c;margin-top:2px">${addr}</div>` : ''}
         ${s.address ? `<div style="font-size:10px;font-weight:600;text-transform:uppercase;color:#b91c1c">${s.address}</div>` : ''}
-        ${student.className ? `<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#b91c1c;margin-top:2px">GRADE ${student.className}</div>` : ''}
+        ${student.className ? `<div style="font-size:12px;font-weight:900;text-transform:uppercase;color:#b91c1c;margin-top:2px">${getGradeLabel(student.className)}</div>` : ''}
       </div>
       <div></div>
     </div>
@@ -448,7 +456,7 @@ const GradeSheetPreview = ({ marksheet, settings }) => {
             {s.address && <div className="font-semibold uppercase text-red-700" style={{ fontSize: 10 }}>{s.address}</div>}
             {student.className && (
               <div className="font-black uppercase text-red-700" style={{ fontSize: 11 }}>
-                GRADE {student.className}
+                {getGradeLabel(student.className)}
               </div>
             )}
           </div>
