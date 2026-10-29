@@ -47,7 +47,7 @@ const PublicWebsite = () => {
       title: 'Academics',
       subtitle: 'Academic programs, examination system, credit-hour GPA, marksheets, and promotion management.',
       icon: BookOpen,
-      cards: ['Nursery to Class 10', 'Credit Hour GPA', 'Internal Assessment', 'Practical Evaluation', 'Final Examination', 'Promotion System'],
+      cards: ['NURSERY to TEN', 'Credit Hour GPA', 'Internal Assessment', 'Practical Evaluation', 'Final Examination', 'Promotion System'],
     },
     '/facilities': {
       title: 'Facilities',

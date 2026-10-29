@@ -21,8 +21,8 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (![".xlsx", ".xls"].includes(ext)) {
-      return cb(new Error("Only .xlsx and .xls files are allowed"));
+    if (![".xlsx", ".xls", ".xlsm"].includes(ext)) {
+      return cb(new Error("Only .xlsx, .xls and .xlsm files are allowed"));
     }
     cb(null, true);
   },

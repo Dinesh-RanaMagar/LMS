@@ -129,6 +129,7 @@ const EditExam = () => {
           fullMarks: hasPractical ? theoryFullMarks + practicalFullMarks : theoryFullMarks,
           passMarks: hasPractical ? theoryPassMarks + practicalPassMarks : theoryPassMarks,
           creditHour: Number(sourceSubject.creditHour) || 0,
+          practicalCreditHour: hasPractical ? Number(sourceSubject.practicalCreditHour) || 0 : 0,
           subjectName: targetSubject.subjectName,
         };
       });
@@ -160,6 +161,7 @@ const EditExam = () => {
             practicalFullMarks: 0,
             practicalPassMarks: 0,
             creditHour: Number(subject.creditHour) || 0,
+            practicalCreditHour: 0,
           };
         }
         const theoryFullMarks = Number(subject.theoryFullMarks || subject.fullMarks || 0);
@@ -171,6 +173,7 @@ const EditExam = () => {
           fullMarks: theoryFullMarks + Number(subject.practicalFullMarks || 0),
           passMarks: theoryPassMarks + Number(subject.practicalPassMarks || 0),
           creditHour: Number(subject.creditHour) || 0,
+          practicalCreditHour: Number(subject.practicalCreditHour) || 0,
         };
       }),
     }));
@@ -179,6 +182,9 @@ const EditExam = () => {
         if (!subject.subjectName.trim()) return setError(`${config.className}: every subject needs a name`);
         if (!Number.isFinite(Number(subject.creditHour)) || Number(subject.creditHour) < 0) {
           return setError(`${config.className} ${subject.subjectName}: credit hour cannot be negative`);
+        }
+        if (!Number.isFinite(Number(subject.practicalCreditHour)) || Number(subject.practicalCreditHour) < 0) {
+          return setError(`${config.className} ${subject.subjectName}: practical credit hour cannot be negative`);
         }
         if (subject.hasPractical) {
           const theoryFullMarks = Number(subject.theoryFullMarks || subject.fullMarks || 0);
@@ -347,6 +353,15 @@ const EditExam = () => {
                         min="0"
                         step="0.1"
                       />
+                      {s.hasPractical && (
+                        <LabeledNumberField
+                          label="Practical Credit Hour"
+                          value={s.practicalCreditHour ?? 0}
+                          onChange={(value) => updateSubject(cfgIdx, subIdx, "practicalCreditHour", value)}
+                          min="0"
+                          step="0.1"
+                        />
+                      )}
                     </div>
                   </div>
                 ))}

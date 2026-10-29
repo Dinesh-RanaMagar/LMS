@@ -200,7 +200,7 @@ const AddEditStudent = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!formData.name || !formData.className || !formData.section) {
+    if (!formData.name || !formData.className || (sectionOptions.length > 0 && !formData.section)) {
       return setError('Name, class, and section are required');
     }
     setSubmitting(true);
@@ -286,13 +286,13 @@ const AddEditStudent = () => {
                     ))}
                   </select>
                 </Field>
-                <Field label="Section" required>
+                <Field label="Section" required={sectionOptions.length > 0}>
                   <select
                     name="section"
                     value={formData.section}
                     onChange={handleChange}
                     className={inputClass}
-                    required
+                    required={sectionOptions.length > 0}
                     disabled={!formData.className || sectionOptions.length === 0}
                   >
                     <option value="">

@@ -11,6 +11,7 @@ const subjectConfigSchema = new mongoose.Schema({
     practicalFullMarks: { type: Number, default: 0 },
     practicalPassMarks: { type: Number, default: 0 },
     creditHour:       { type: Number, default: 0, min: 0 },
+    practicalCreditHour: { type: Number, default: 0, min: 0 },
     hasPractical:     { type: Boolean, default: false },
 });
 

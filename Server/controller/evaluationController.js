@@ -12,9 +12,10 @@ const getGradeFromPercentage = (percentage) => {
   if (percentage >= 80) return 'A';
   if (percentage >= 70) return 'B+';
   if (percentage >= 60) return 'B';
-  if (percentage >= 50) return 'C';
-  if (percentage >= 40) return 'D';
-  return 'F';
+  if (percentage >= 50) return 'C+';
+  if (percentage >= 40) return 'C';
+  if (percentage >= 35) return 'D';
+  return 'NG';
 };
 
 const getGpaFromPercentage = (percentage) => {
@@ -24,6 +25,7 @@ const getGpaFromPercentage = (percentage) => {
   if (percentage >= 60) return 2.8;
   if (percentage >= 50) return 2.4;
   if (percentage >= 40) return 2.0;
+  if (percentage >= 35) return 1.6;
   return 0.0;
 };
 
@@ -234,7 +236,7 @@ export const compareEvaluation = async (req, res) => {
         percentage: storedPercentage,
         gpa: derivedGpa,
         finalGrade: marksheet
-          ? hasFailedSubject ? 'Failed' : marksheet.grade
+          ? hasFailedSubject ? 'NG' : marksheet.grade
           : null,
         obtainedMarks: marksheet?.totalMarks ?? null,
         totalMarks: marksheet?.totalFullMarks ?? null,
@@ -284,8 +286,8 @@ export const compareEvaluation = async (req, res) => {
           theoryPercentage,
           gpa: subjectResult === 'Fail' ? 0.0 : getGpaFromPercentage(percentage),
           theoryGpa: theoryResult === 'Fail' ? 0.0 : getGpaFromPercentage(theoryPercentage),
-          grade: subjectResult === 'Fail' ? 'Failed' : getGradeFromPercentage(percentage),
-          theoryGrade: theoryResult === 'Fail' ? 'Failed' : getGradeFromPercentage(theoryPercentage),
+          grade: subjectResult === 'Fail' ? 'NG' : getGradeFromPercentage(percentage),
+          theoryGrade: theoryResult === 'Fail' ? 'NG' : getGradeFromPercentage(theoryPercentage),
           result: subjectResult,
           theoryResult,
         };

@@ -33,6 +33,7 @@ export const getWorkspaceTabTitle = (pathname) => {
   if (pathname === '/marks-entry') return 'Marks Entry';
   if (pathname === '/marksheets') return 'Marksheets';
   if (pathname === '/reports/tabulation') return 'Tabulation';
+  if (pathname === '/reports/comparison') return 'Comparison';
   if (pathname === '/evaluation') return 'Evaluation';
   if (pathname === '/promotion') return 'Promotion';
   if (pathname === '/teachers') return 'Teachers';

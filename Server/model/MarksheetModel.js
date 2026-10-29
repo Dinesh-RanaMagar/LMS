@@ -70,6 +70,11 @@ const marksheetSchema = new mongoose.Schema({
                 type: Number,
                 default: 0
             },
+            practicalCreditHour: {
+                type: Number,
+                default: 0,
+                min: 0
+            },
             obtainedMarks: {
                 type: Number,
                 default: 0
@@ -80,7 +85,7 @@ const marksheetSchema = new mongoose.Schema({
             },
             grade: {
                 type: String,
-                default: "F"
+                default: "NG"
             },
             gradePoint: {
                 type: Number,
@@ -119,7 +124,7 @@ const marksheetSchema = new mongoose.Schema({
     },
     grade: {
         type: String,
-        default: "F"
+        default: "NG"
     },
     result: {
         type: String,

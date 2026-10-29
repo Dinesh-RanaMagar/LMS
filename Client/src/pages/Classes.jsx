@@ -581,9 +581,9 @@ function ClassesSubjects() {
                   className={inputClass}
                   value={classForm.className}
                   onChange={(e) =>
-                    setClassForm({ ...classForm, className: e.target.value })
+                    setClassForm({ ...classForm, className: e.target.value.toUpperCase() })
                   }
-                  placeholder="Class 8"
+                  placeholder="TEN"
                 />
               </div>
 
@@ -605,7 +605,7 @@ function ClassesSubjects() {
                 <label className="text-sm font-medium text-gray-700">
                   Promotion Rank
                 </label>
-                <p className="text-xs text-gray-400 mb-1">Lower rank comes first. Example: Nursery 1, LKG 2, UKG 3, Class 1 4.</p>
+                <p className="text-xs text-gray-400 mb-1">Lower rank comes first. Example: NURSERY 1, KG 2, ONE 3, TWO 4.</p>
                 <input
                   type="number"
                   className={inputClass}

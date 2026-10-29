@@ -26,8 +26,9 @@ const studentEnrollmentSchema = new mongoose.Schema(
       trim: true,
     },
     section: {
+      // Left empty for classes that define no sections (e.g. NURSERY).
       type: String,
-      required: [true, "Section is required"],
+      default: "",
       trim: true,
     },
     rollNo: {
@@ -53,10 +54,18 @@ studentEnrollmentSchema.index({ student: 1, academicYear: 1 }, { unique: true })
 // Fast class/year lookups
 studentEnrollmentSchema.index({ academicYear: 1, className: 1, section: 1 });
 
-// Unique roll number within a class-section-year (sparse so null is allowed)
+// Unique roll number within a class-section-year.
+// A partial filter is used instead of `sparse` because a sparse index only
+// skips documents where *every* indexed field is missing — a section-less
+// student (section: "" and rollNo: null) is still indexed and would collide
+// with the next one. Students without a roll number are excluded here.
 studentEnrollmentSchema.index(
   { academicYear: 1, className: 1, section: 1, rollNo: 1 },
-  { unique: true, sparse: true }
+  {
+    name: "unique_enrollment_roll_no",
+    unique: true,
+    partialFilterExpression: { rollNo: { $type: "number" } },
+  }
 );
 
 export default mongoose.model("StudentEnrollment", studentEnrollmentSchema);

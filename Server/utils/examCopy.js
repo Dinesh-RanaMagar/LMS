@@ -16,6 +16,7 @@ export const buildExamCopyData = (source, examName, createdBy) => ({
       practicalFullMarks: subject.practicalFullMarks,
       practicalPassMarks: subject.practicalPassMarks,
       creditHour: subject.creditHour,
+      practicalCreditHour: subject.practicalCreditHour,
       hasPractical: subject.hasPractical,
     })),
     targetStudentsMode: config.targetStudentsMode,

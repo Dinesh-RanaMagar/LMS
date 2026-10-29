@@ -3,6 +3,7 @@ import Student from "../model/StudentModel.js";
 import Exam from "../model/examModel.js";
 import AcademicYear from "../model/AcademicYearModel.js";
 import StudentEnrollment from "../model/StudentEnrollmentModel.js";
+import ClassModel from "../model/ClassModel.js";
 import { normalizeMarkSubject, parseMarksWorkbook } from "../utils/marksImport.js";
 
 class MarksImportInputError extends Error {}
@@ -18,10 +19,12 @@ const normalizeRollNumber = (value) => {
   return /^\d+(?:\.0+)?$/.test(roll) ? String(Number(roll)) : roll;
 };
 
-const buildMarksImport = async ({ buffer, examId, className, section }) => {
+const normalizeEmisCode = (value) => String(value ?? "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+
+export const buildMarksImport = async ({ buffer, examId, className, section }) => {
   if (!buffer) throw new MarksImportInputError("Please upload an Excel file.");
-  if (!examId || !className || !section) {
-    throw new MarksImportInputError("Exam, class, and section are required.");
+  if (!examId || !className) {
+    throw new MarksImportInputError("Exam and class are required.");
   }
 
   let parsed;
@@ -34,6 +37,14 @@ const buildMarksImport = async ({ buffer, examId, className, section }) => {
   if (!exam) throw new MarksImportInputError("Exam not found.");
   const classConfig = exam.classExamConfigs.find((item) => item.className === className);
   if (!classConfig) throw new MarksImportInputError(`The selected exam has no subject configuration for ${className}.`);
+
+  // Classes that configure no sections (e.g. NURSERY) import without one.
+  const configuredClass = await ClassModel.findOne({ className }).select("className sections").lean();
+  const configuredSections = (configuredClass?.sections || []).filter(Boolean);
+  if (configuredSections.length && !section) {
+    throw new MarksImportInputError(`Section is required for ${className}.`);
+  }
+  const resolvedSection = configuredSections.length ? section : "";
 
   const subjectMap = new Map(
     classConfig.subjects.map((subject) => [normalizeMarkSubject(subject.subjectName), subject])
@@ -49,35 +60,56 @@ const buildMarksImport = async ({ buffer, examId, className, section }) => {
   const enrollments = await StudentEnrollment.find({
     academicYear: exam.academicYear,
     className,
-    section,
     status: { $ne: "left" },
-  }).populate("student", "name");
+  }).populate("student", "name emisCode");
   const studentsByRoll = new Map();
+  // The registration number on a report card is the student's EMIS code. It
+  // identifies a student on its own, so it is looked up across every section of
+  // the class (a single sheet can list the whole class before it is split).
+  const studentsByEmis = new Map();
   for (const enrollment of enrollments) {
-    if (!enrollment.student || enrollment.rollNo === null || enrollment.rollNo === undefined) continue;
-    const key = normalizeRollNumber(enrollment.rollNo);
-    if (!studentsByRoll.has(key)) studentsByRoll.set(key, []);
-    studentsByRoll.get(key).push(enrollment.student);
+    if (!enrollment.student) continue;
+    if (enrollment.section === resolvedSection && enrollment.rollNo !== null && enrollment.rollNo !== undefined) {
+      const key = normalizeRollNumber(enrollment.rollNo);
+      if (!studentsByRoll.has(key)) studentsByRoll.set(key, []);
+      studentsByRoll.get(key).push(enrollment.student);
+    }
+    const emisKey = normalizeEmisCode(enrollment.student.emisCode);
+    if (!emisKey) continue;
+    if (!studentsByEmis.has(emisKey)) studentsByEmis.set(emisKey, []);
+    studentsByEmis.get(emisKey).push(enrollment.student);
   }
 
   const seenRolls = new Set();
+  const seenRegNos = new Set();
   const rows = parsed.rows.map((row) => {
     const errors = [...row.errors];
     let studentId = null;
+    const emisKey = normalizeEmisCode(row.regNo);
     const rollKey = normalizeRollNumber(row.rollNo);
-    const rollMatches = studentsByRoll.get(rollKey) || [];
-    if (!row.rollNo) errors.push("Roll number is missing.");
-    else if (seenRolls.has(rollKey)) errors.push("Duplicate roll number in spreadsheet.");
-    else if (rollMatches.length === 0) errors.push("No student with this roll number in the selected class, section, and exam year.");
-    else if (rollMatches.length > 1) errors.push("More than one student has this roll number; cannot match safely.");
-    else {
-      studentId = String(rollMatches[0]._id);
+    const emisMatches = emisKey ? studentsByEmis.get(emisKey) || [] : [];
+    const rollMatches = row.rollNo ? studentsByRoll.get(rollKey) || [] : [];
+
+    if (emisKey && seenRegNos.has(emisKey)) errors.push("Duplicate Reg.No. in spreadsheet.");
+    if (row.rollNo && seenRolls.has(rollKey)) errors.push("Duplicate roll number in spreadsheet.");
+    if (emisKey) seenRegNos.add(emisKey);
+    if (row.rollNo) seenRolls.add(rollKey);
+
+    const matches = emisMatches.length ? emisMatches : rollMatches;
+    if (!matches.length) {
+      if (!row.regNo && !row.rollNo) errors.push("Reg.No. and roll number are both missing.");
+      else errors.push("No student with this Reg.No. or roll number in the selected class and exam year.");
+    } else if (matches.length > 1) {
+      errors.push("More than one student matches this row; cannot match safely.");
+    } else {
+      studentId = String(matches[0]._id);
       if (!row.name) errors.push("Student name is missing.");
-      else if (normalizeStudentName(row.name) !== normalizeStudentName(rollMatches[0].name)) {
-        errors.push(`Name does not match roll ${row.rollNo} (${rollMatches[0].name}).`);
+      // A Reg.No. match is an exact EMIS match, so a differently spelled name is
+      // accepted. A roll number is positional, so its name must still agree.
+      else if (!emisMatches.length && normalizeStudentName(row.name) !== normalizeStudentName(matches[0].name)) {
+        errors.push(`Name does not match roll ${row.rollNo} (${matches[0].name}).`);
       }
     }
-    if (rollKey) seenRolls.add(rollKey);
 
     const marks = [];
     for (const { sourceName, config } of mappedSubjects) {
@@ -105,6 +137,7 @@ const buildMarksImport = async ({ buffer, examId, className, section }) => {
         practicalFullMarks: config.hasPractical ? config.practicalFullMarks : 0,
         practicalPassMarks: config.hasPractical ? config.practicalPassMarks : 0,
         creditHour: config.creditHour || 0,
+        practicalCreditHour: config.hasPractical ? config.practicalCreditHour || 0 : 0,
       });
     }
 
@@ -122,7 +155,7 @@ const buildMarksImport = async ({ buffer, examId, className, section }) => {
   return {
     exam,
     className,
-    section,
+    section: resolvedSection,
     subjects: mappedSubjects.map(({ config }) => config.subjectName),
     rows,
   };
@@ -168,6 +201,19 @@ const attachStudentYearData = async (marksheet) => {
     marksheet.student = studentObj;
   }
   return marksheet;
+};
+
+/**
+ * Gives access to the enriched student fields (className, section, rollNo).
+ * Mongoose keeps those non-schema fields only inside the populated document's
+ * internal object, so they appear in the JSON response but NOT through direct
+ * property access. Reading through toObject() returns the same values the
+ * client receives.
+ */
+const getEnrichedStudent = (marksheet) => {
+  const student = marksheet?.student;
+  if (!student) return null;
+  return typeof student.toObject === "function" ? student.toObject() : student;
 };
 
 // CREATE/ENTER MARKS
@@ -263,7 +309,7 @@ export const getMarksheets = async (req, res) => {
     marksheets = await Promise.all(marksheets.map(m => attachStudentYearData(m)));
 
     if (className) {
-      marksheets = marksheets.filter((marksheet) => marksheet.student?.className === className);
+      marksheets = marksheets.filter((marksheet) => getEnrichedStudent(marksheet)?.className === className);
     }
 
     // Ensure final sanitization: only return marksheets whose populated exam is published (unless allowed)
@@ -339,7 +385,7 @@ export const getMarksheetsByExam = async (req, res) => {
     marksheets = await Promise.all(marksheets.map(m => attachStudentYearData(m)));
 
     // Sort by roll number if available
-    marksheets.sort((a, b) => (a.student?.rollNo || 0) - (b.student?.rollNo || 0));
+    marksheets.sort((a, b) => (Number(getEnrichedStudent(a)?.rollNo) || 0) - (Number(getEnrichedStudent(b)?.rollNo) || 0));
 
     res.json({ success: true, count: marksheets.length, marksheets });
   } catch (error) {

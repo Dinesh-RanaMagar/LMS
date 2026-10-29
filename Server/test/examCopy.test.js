@@ -21,6 +21,7 @@ test("copies exam configuration while resetting exam status and publication", ()
         practicalFullMarks: 25,
         practicalPassMarks: 10,
         creditHour: 4,
+        practicalCreditHour: 2,
         hasPractical: true,
       }],
       targetStudentsMode: "selected",

@@ -87,10 +87,10 @@ export const createStudent = async (req, res) => {
       mobileNumber, address, legacyDetails,
     } = req.body;
 
-    if (!name || !className || !section) {
+    if (!name || !className) {
       return res.status(400).json({
         success: false,
-        message: "Name, class, and section are required",
+        message: "Name and class are required",
       });
     }
 
@@ -102,12 +102,31 @@ export const createStudent = async (req, res) => {
       });
     }
 
+    // Classes such as NURSERY define no sections, so a section is only
+    // required when the class actually has sections configured.
+    const configuredClass = await ClassModel.findOne({ className: cleanText(className) })
+      .select("className sections").lean();
+    const configuredSections = (configuredClass?.sections || []).filter(Boolean);
+    let resolvedSection = "";
+    if (configuredSections.length) {
+      resolvedSection = configuredSections.find(
+        (value) => value.toLowerCase() === cleanText(section).toLowerCase(),
+      ) || "";
+      if (!resolvedSection) {
+        return res.status(400).json({
+          success: false,
+          message: `Section is required for ${configuredClass.className}`,
+        });
+      }
+    }
+    const resolvedClassName = configuredClass?.className || cleanText(className);
+
     // Check roll number uniqueness via enrollment table
     if (rollNo != null && rollNo !== "") {
       const conflict = await StudentEnrollment.exists({
         academicYear: activeYear.yearName,
-        className,
-        section,
+        className: resolvedClassName,
+        section: resolvedSection,
         rollNo: Number(rollNo),
       });
       if (conflict) {
@@ -137,8 +156,8 @@ export const createStudent = async (req, res) => {
       address,
       legacyDetails,
       // Keep denormalised copy on Student for backward-compat with marksheets/attendance
-      className,
-      section,
+      className: resolvedClassName,
+      section: resolvedSection,
       academicYear: activeYear.yearName,
       status:       "active",
     });
@@ -147,8 +166,8 @@ export const createStudent = async (req, res) => {
     const enrollment = await StudentEnrollment.create({
       student:      student._id,
       academicYear: activeYear.yearName,
-      className,
-      section,
+      className:    resolvedClassName,
+      section:      resolvedSection,
       rollNo:       rollNo != null && rollNo !== "" ? Number(rollNo) : null,
       status:       "active",
     });
@@ -374,8 +393,14 @@ const chunkValues = async (values, callback) => {
 const tupleKey = (values) => values.map((value) => String(value ?? "").toLowerCase()).join("|");
 
 const splitClassSection = (value) => {
-  const match = cleanText(value).match(/^(.+?)[\s/-]+([a-z0-9]+)$/i);
-  return match ? { className: match[1].trim(), section: match[2].trim() } : null;
+  const text = cleanText(value);
+  if (!text) return null;
+  const match = text.match(/^(.+?)[\s/-]+([a-z0-9]+)$/i);
+  // A combined cell such as "NURSERY" (classes without sections) carries no
+  // separator, so the whole value is the class name and the section is empty.
+  return match
+    ? { className: match[1].trim(), section: match[2].trim() }
+    : { className: text, section: "" };
 };
 
 const buildStudentImportPreview = async (buffer, options) => {
@@ -455,7 +480,6 @@ const buildStudentImportPreview = async (buffer, options) => {
     const issues = [];
     if (!fields.name) issues.push("Student name is required");
     if (!fields.className) issues.push("Class is required");
-    if (!fields.section) issues.push("Section is required");
     if (!fields.academicYear) {
       issues.push("Academic year is required");
     } else if (!existingYears.has(fields.academicYear)) {
@@ -464,22 +488,31 @@ const buildStudentImportPreview = async (buffer, options) => {
 
     const sourceClassName = fields.className;
     const mappedClass = sourceClassName ? cleanText(classMap[sourceClassName]) : "";
-    if (sourceClassName && !classByName.has(mappedClass.toLowerCase())) {
+    const configuredClass = mappedClass ? classByName.get(mappedClass.toLowerCase()) : undefined;
+    const configuredSections = (configuredClass?.sections || []).filter(Boolean);
+    if (sourceClassName && !configuredClass) {
       issues.push(`Map "${sourceClassName}" to an active class`);
-    } else if (mappedClass) {
-      fields.className = classByName.get(mappedClass.toLowerCase()).className;
+    } else if (configuredClass) {
+      fields.className = configuredClass.className;
     }
 
-    if (fields.section && fields.className) {
-      const configuredClass = classByName.get(fields.className.toLowerCase());
-      const configuredSection = (configuredClass?.sections || []).find(
-        (section) => section.toLowerCase() === fields.section.toLowerCase(),
-      );
-      if ((configuredClass?.sections || []).length && !configuredSection) {
-        issues.push(`Section "${fields.section}" is not configured for ${fields.className}`);
-      } else if (configuredSection) {
+    // A section only exists when the class defines one, so classes such as
+    // NURSERY (no sections configured) import without any section.
+    if (configuredClass && configuredSections.length) {
+      const configuredSection = fields.section
+        ? configuredSections.find(
+          (section) => section.toLowerCase() === fields.section.toLowerCase(),
+        )
+        : undefined;
+      if (!fields.section) {
+        issues.push(`Section is required for ${configuredClass.className}`);
+      } else if (!configuredSection) {
+        issues.push(`Section "${fields.section}" is not configured for ${configuredClass.className}`);
+      } else {
         fields.section = configuredSection;
       }
+    } else {
+      fields.section = "";
     }
 
     if (fields.rollNo) {

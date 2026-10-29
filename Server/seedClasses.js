@@ -5,11 +5,11 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const classes = [
-  { className: "Class 6", order: 8, sections: ["A", "B"] },
-  { className: "Class 7", order: 9, sections: ["A", "B"] },
-  { className: "Class 8", order: 10, sections: ["A", "B"] },
-  { className: "Class 9", order: 11, sections: ["A", "B"] },
-  { className: "Class 10", order: 12, sections: ["A", "B"] },
+  { className: "SIX", order: 8, sections: ["A", "B"] },
+  { className: "SEVEN", order: 9, sections: ["A", "B"] },
+  { className: "EIGHT", order: 10, sections: ["A", "B"] },
+  { className: "NINE", order: 11, sections: ["A", "B"] },
+  { className: "TEN", order: 12, sections: ["A", "B"] },
 ];
 
 async function seedClasses() {

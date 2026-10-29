@@ -1,16 +1,19 @@
 import ClassModel from "../model/ClassModel.js";
 
+const normalizeClassName = (value) => String(value ?? "").trim().toUpperCase();
+
 export const createClass = async (req, res) => {
   try {
     const { className, sections, description, order, periods } = req.body;
+    const normalizedClassName = normalizeClassName(className);
 
-    if (!className?.trim()) {
+    if (!normalizedClassName) {
       return res
         .status(400)
         .json({ success: false, message: "Class name is required" });
     }
 
-    const existingClass = await ClassModel.findOne({ className: className.trim() });
+    const existingClass = await ClassModel.findOne({ className: normalizedClassName });
     if (existingClass) {
       return res
         .status(400)
@@ -26,8 +29,8 @@ export const createClass = async (req, res) => {
       : [];
 
     const classData = await ClassModel.create({
-      className: className.trim(),
-      sections: Array.isArray(sections) && sections.length > 0 ? sections : ["A", "B", "C"],
+      className: normalizedClassName,
+      sections: Array.isArray(sections) ? sections.filter(Boolean) : ["A", "B", "C"],
       description: description || "",
       order: Number.isFinite(Number(order)) ? Number(order) : 0,
       periods: normalizedPeriods,
@@ -71,20 +74,21 @@ export const updateClass = async (req, res) => {
 
     const { className, sections, description, order, isActive, periods } = req.body;
 
-    if (className && className.trim() !== classData.className) {
+    const normalizedClassName = normalizeClassName(className);
+    if (normalizedClassName && normalizedClassName !== classData.className) {
       const duplicate = await ClassModel.findOne({
         _id: { $ne: classData._id },
-        className: className.trim(),
+        className: normalizedClassName,
       });
       if (duplicate) {
         return res
           .status(400)
           .json({ success: false, message: "Class already exists" });
       }
-      classData.className = className.trim();
+      classData.className = normalizedClassName;
     }
 
-    if (Array.isArray(sections)) classData.sections = sections;
+    if (Array.isArray(sections)) classData.sections = sections.filter(Boolean);
     if (description !== undefined) classData.description = description;
     if (order !== undefined) classData.order = Number.isFinite(Number(order)) ? Number(order) : 0;
     if (isActive !== undefined) classData.isActive = isActive;

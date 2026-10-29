@@ -104,16 +104,13 @@ function Promotions() {
     setShowPromoteModal(true);
   };
 
-  const getNextClass = (currentClass) => {
-    const match = currentClass.match(/Class (\d+)/);
-    if (match) {
-      return `Class ${Number(match[1]) + 1}`;
-    }
-    return currentClass;
-  };
-
-  const classes = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+  const classes = ['NURSERY', 'KG', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN'];
   const sections = ['A', 'B', 'C', 'D'];
+
+  const getNextClass = (currentClass) => {
+    const index = classes.indexOf(String(currentClass ?? '').trim().toUpperCase());
+    return index >= 0 && index < classes.length - 1 ? classes[index + 1] : currentClass;
+  };
 
   if (loading) {
     return (

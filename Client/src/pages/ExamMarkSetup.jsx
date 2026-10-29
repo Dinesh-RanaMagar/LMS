@@ -23,6 +23,7 @@ const toSetupSubject = (subject) => {
     practicalFullMarks,
     practicalPassMarks: Number(subject.practicalPassMarks) || 0,
     creditHour: Number(subject.creditHour) || 0,
+    practicalCreditHour: Number(subject.practicalCreditHour) || 0,
     hasPractical,
   };
 };
@@ -38,6 +39,7 @@ const toExamSubject = (subject) => ({
   practicalFullMarks: subject.hasPractical ? Number(subject.practicalFullMarks) : 0,
   practicalPassMarks: subject.hasPractical ? Number(subject.practicalPassMarks) : 0,
   creditHour: Number(subject.creditHour) || 0,
+  practicalCreditHour: subject.hasPractical ? Number(subject.practicalCreditHour) || 0 : 0,
 });
 
 const ExamMarkSetup = () => {
@@ -117,6 +119,7 @@ const ExamMarkSetup = () => {
       if (!subject.subjectName) return 'Subject name is required';
       if (!subject.theoryFullMarks || subject.theoryFullMarks <= 0) return `${subject.subjectName}: theory full mark must be greater than 0`;
       if (subject.creditHour < 0) return `${subject.subjectName}: credit hour cannot be negative`;
+      if (subject.practicalCreditHour < 0) return `${subject.subjectName}: practical credit hour cannot be negative`;
       if (subject.theoryPassMarks < 0) return `${subject.subjectName}: theory pass mark cannot be negative`;
       if (subject.theoryPassMarks > subject.theoryFullMarks) return `${subject.subjectName}: theory pass mark cannot exceed theory full mark`;
       if (subject.hasPractical && subject.practicalFullMarks <= 0) return `${subject.subjectName}: practical full mark must be greater than 0`;
@@ -350,7 +353,10 @@ const ExamMarkSetup = () => {
                     </div>
                     <div className="rounded-xl border border-gray-200 bg-white p-4">
                       <h3 className="mb-3 text-sm font-bold text-gray-700">OTHER</h3>
-                      <NumberField label="Credit Hour" value={subject.creditHour} step="0.1" onChange={(value) => updateSubject(index, 'creditHour', value)} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <NumberField label="Credit Hour" value={subject.creditHour} step="0.1" onChange={(value) => updateSubject(index, 'creditHour', value)} />
+                        <NumberField label="Practical Credit Hour" value={subject.practicalCreditHour} step="0.1" disabled={!subject.hasPractical} onChange={(value) => updateSubject(index, 'practicalCreditHour', value)} />
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -38,7 +38,13 @@ export const normalizeMarkSubject = (value) => String(value ?? "")
   .toLowerCase()
   .replace(/compulsory|optional/g, "")
   .replace(/^(c|opt)(?=[a-z0-9])/g, "")
-  .replace(/[^a-z0-9]/g, "");
+  .replace(/[^a-z0-9]/g, "")
+  // "C.NEPALI" / "C MATHS" mark a compulsory subject; the letter is dropped
+  // only after punctuation is gone so "OPT I"/"OPT II" keep their identity.
+  .replace(/^c(?=[a-z])/, "")
+  // Report cards abbreviate a couple of subjects differently than the exam config.
+  .replace(/^maths$/, "mathematics")
+  .replace(/^healthcreativearts$/, "health");
 
 export const parseMarksWorkbook = (buffer) => {
   let workbook;
@@ -60,15 +66,20 @@ export const parseMarksWorkbook = (buffer) => {
   let headerRowIndex = -1;
   let rollColumn = -1;
   let nameColumn = -1;
+  let regColumn = -1;
   let componentColumns = [];
 
   for (let rowIndex = 0; rowIndex < Math.min(rows.length, 20); rowIndex += 1) {
     const row = rows[rowIndex] || [];
     const roll = findIdentifierColumn(rows, Math.max(0, rowIndex - 1), rowIndex, [
-      "roll", "rollno", "rollnumber", "rollnum",
+      "roll", "rollno", "rollnumber", "rollnum", "rn", "sn", "sno", "rno",
     ]);
     const name = findIdentifierColumn(rows, Math.max(0, rowIndex - 1), rowIndex, [
       "name", "studentname", "nameofstudent",
+    ]);
+    // Report cards also carry a registration number that maps to Student.emisCode.
+    const reg = findIdentifierColumn(rows, Math.max(0, rowIndex - 1), rowIndex, [
+      "regno", "reg", "regnumber", "registrationno", "emis", "emiscode", "emisno",
     ]);
     const previousRow = rows[rowIndex - 1] || [];
     let lastGroupName = "";
@@ -98,6 +109,7 @@ export const parseMarksWorkbook = (buffer) => {
       headerRowIndex = rowIndex;
       rollColumn = roll;
       nameColumn = name;
+      regColumn = reg;
       componentColumns = foundComponents;
       break;
     }
@@ -137,11 +149,14 @@ export const parseMarksWorkbook = (buffer) => {
     if (!row.some((cell) => String(cell ?? "").trim())) continue;
     const rollNo = String(row[rollColumn] ?? "").trim();
     const name = String(row[nameColumn] ?? "").trim();
+    const regNo = regColumn >= 0 ? String(row[regColumn] ?? "").trim() : "";
     const hasMarks = subjects.some((subject) =>
       String(row[subject.theoryColumn] ?? "").trim() || String(row[subject.practicalColumn] ?? "").trim()
     );
     if (!rollNo && !name && !hasMarks) continue;
-    if (/^(total|average|percentage|rank)$/i.test(rollNo)) continue;
+    // Summary lines such as "Avg.Value" sit under the roster and are not students.
+    const rowLabel = `${rollNo}${name}`.toLowerCase().replace(/[^a-z]/g, "");
+    if (/^(total|average|percentage|rank|avgvalue|avgval)/.test(rowLabel)) continue;
 
     const marks = {};
     const errors = [];
@@ -161,7 +176,7 @@ export const parseMarksWorkbook = (buffer) => {
       }
     }
 
-    parsedRows.push({ rowNumber: rowIndex + 1, rollNo, name, marks, errors });
+    parsedRows.push({ rowNumber: rowIndex + 1, rollNo, regNo, name, marks, errors });
   }
 
   if (!parsedRows.length) throw new Error("No student mark rows were found below the header.");

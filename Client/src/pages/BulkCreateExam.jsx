@@ -5,9 +5,9 @@ import Layout from "../components/Layout";
 import { ArrowLeft, Layers, Check, AlertCircle, Plus, Trash2 } from "lucide-react";
 
 const CLASS_NAMES = [
-  "Nursery","LKG","UKG",
-  "Class 1","Class 2","Class 3","Class 4","Class 5",
-  "Class 6","Class 7","Class 8","Class 9","Class 10",
+  "NURSERY","KG",
+  "ONE","TWO","THREE","FOUR","FIVE",
+  "SIX","SEVEN","EIGHT","NINE","TEN",
 ];
 
 const ic = "w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-gray-50 focus:bg-white transition";

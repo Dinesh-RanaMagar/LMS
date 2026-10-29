@@ -21,6 +21,7 @@ export const mapAssignedSubjectsToExam = (assignedSubjects = []) =>
         practicalPassMarks: Number(assignedSubject.practicalPassMarks) || 0,
         hasPractical: Boolean(assignedSubject.hasPractical),
         creditHour: Number(assignedSubject.creditHour) || 0,
+        practicalCreditHour: Number(assignedSubject.practicalCreditHour) || 0,
       };
     })
     .filter(Boolean);

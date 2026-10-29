@@ -18,6 +18,7 @@ import ExamMarkSetup from '../pages/ExamMarkSetup';
 import MarksEntry from '../pages/MarksEntry';
 import Marksheets from '../pages/Marksheets';
 import TabulationReport from '../pages/TabulationReport';
+import ComparisonReport from '../pages/ComparisonReport';
 import AcademicYears from '../pages/AcademicYears';
 import Promotion from '../pages/Promotion';
 import Teachers from '../pages/Teachers';
@@ -53,6 +54,7 @@ const WorkspaceRoutes = () => {
         <Route path="/marks-entry" element={<P><MarksEntry /></P>} />
         <Route path="/marksheets" element={<P><Marksheets /></P>} />
         <Route path="/reports/tabulation" element={<P><TabulationReport /></P>} />
+        <Route path="/reports/comparison" element={<P><ComparisonReport /></P>} />
         <Route path="/evaluation" element={<P><EvaluationDashboard /></P>} />
         <Route path="/academic-years" element={<P><AcademicYears /></P>} />
         <Route path="/promotion" element={<P><Promotion /></P>} />

@@ -2,18 +2,18 @@ import AcademicYear from '../model/AcademicYearModel.js';
 import ClassModel from '../model/ClassModel.js';
 
 const defaultClasses = [
-  { className: 'Nursery', order: 1, sections: [] },
+  { className: 'NURSERY', order: 1, sections: [] },
   { className: 'KG', order: 2, sections: [] },
-  { className: 'Class 1', order: 3, sections: [] },
-  { className: 'Class 2', order: 4, sections: [] },
-  { className: 'Class 3', order: 5, sections: [] },
-  { className: 'Class 4', order: 6, sections: [] },
-  { className: 'Class 5', order: 7, sections: [] },
-  { className: 'Class 6', order: 8, sections: ['A', 'B'] },
-  { className: 'Class 7', order: 9, sections: ['A', 'B'] },
-  { className: 'Class 8', order: 10, sections: ['A', 'B'] },
-  { className: 'Class 9', order: 11, sections: ['A', 'B'] },
-  { className: 'Class 10', order: 12, sections: ['A', 'B'] },
+  { className: 'ONE', order: 3, sections: [] },
+  { className: 'TWO', order: 4, sections: [] },
+  { className: 'THREE', order: 5, sections: [] },
+  { className: 'FOUR', order: 6, sections: [] },
+  { className: 'FIVE', order: 7, sections: [] },
+  { className: 'SIX', order: 8, sections: ['A', 'B'] },
+  { className: 'SEVEN', order: 9, sections: ['A', 'B'] },
+  { className: 'EIGHT', order: 10, sections: ['A', 'B'] },
+  { className: 'NINE', order: 11, sections: ['A', 'B'] },
+  { className: 'TEN', order: 12, sections: ['A', 'B'] },
 ];
 
 const getDefaultAcademicYearName = () => {

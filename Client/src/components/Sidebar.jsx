@@ -42,6 +42,7 @@ const navItems = [
     icon: FileText,
     children: [
       { path: '/reports/tabulation', label: 'Tabulation' },
+      { path: '/reports/comparison', label: 'Comparison' },
       { path: '/marksheets', label: 'Marksheets' },
       { path: '/evaluation', label: 'Analysis' },
     ],

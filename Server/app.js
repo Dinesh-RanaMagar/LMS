@@ -23,9 +23,37 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 
+// Origins are validated per-request so the same backend serves both the local
+// dev client (any localhost port) and the Netlify deployment (incl. deploy previews).
+const staticOrigins = [
+  'https://jananamuna.netlify.app',
+];
+
+// Extra origins can be supplied via the environment, e.g.
+// CORS_ORIGINS="https://example.com,https://staging.example.com"
+// Read lazily because dotenv.config() runs after this module is imported.
+const getEnvOrigins = () =>
+  (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  // No Origin header: same-origin requests, curl/Postman, server-to-server.
+  if (!origin) return true;
+  if (staticOrigins.includes(origin) || getEnvOrigins().includes(origin)) return true;
+
+  return (
+    // Netlify production site + branch/deploy previews (e.g. branch--site.netlify.app)
+    /^https:\/\/([a-z0-9-]+--)?jananamuna\.netlify\.app$/.test(origin)
+    // Local development: Vite dev server and `vite preview` on any port
+    || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+  );
+};
+
 app.use(cors({
-  origin: 'https://jananamuna.netlify.app',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: (origin, callback) => callback(null, isAllowedOrigin(origin)),
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 

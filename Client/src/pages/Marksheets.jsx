@@ -22,6 +22,7 @@ const gradeColor = (grade) => {
     C:    'text-yellow-600 bg-yellow-50',
     D:    'text-orange-700 bg-orange-100',
     F:    'text-red-700 bg-red-100',
+    NG:   'text-red-700 bg-red-100',
   };
   return map[grade] || 'text-gray-700 bg-gray-100';
 };
@@ -45,8 +46,19 @@ const DEFAULT_GRADING_TABLE = [
 
 const classNameSort = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
-// "Class 10" already says "class", so the redundant word is dropped: "GRADE 10".
-// Whole word only — "Nursery" and "KG" are left untouched.
+// Class names are words now ("TEN", not "Class 10"), so a plain string sort
+// would return "EIGHT, FIVE, FOUR, ...". Rank the configured names by hand.
+const CLASS_ORDER = ['NURSERY', 'KG', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN'];
+const compareClassNames = (first, second) => {
+  const rank = (name) => {
+    const index = CLASS_ORDER.indexOf(String(name ?? '').trim().toUpperCase());
+    return index === -1 ? CLASS_ORDER.length : index;
+  };
+  return rank(first) - rank(second) || classNameSort.compare(first, second);
+};
+
+// Drops a redundant leading "Class" word if a name still carries one ("GRADE 10").
+// Whole word only — names like "NURSERY" and "KG" are left untouched.
 const getGradeLabel = (className) => {
   if (!className) return '';
   const stripped = String(className).replace(/\bclass(?![a-z])/gi, '').replace(/\s+/g, ' ').trim();
@@ -88,15 +100,16 @@ const buildSubjectRows = (marksheet) =>
     const inGP       = inFull  ? Number(getGradePointLocal(inPct).toFixed(2)) : null;
     const thGrade    = thFull  ? getGradeLocal(thPct) : null;
     const inGrade    = inFull  ? getGradeLocal(inPct) : null;
-    const creditHour = Number(m.creditHour || config?.creditHour || 0) || null;
+    const thCreditHour = Number(m.creditHour || config?.creditHour || 0) || null;
+    const inCreditHour = Number(m.practicalCreditHour || config?.practicalCreditHour || 0) || null;
 
     return {
       sn:         i + 1,
       name:       m.subject,
-      thCH:       creditHour,
+      thCH:       thCreditHour,
       thGP:       hasPrac ? thGP : (m.gradePoint ?? thGP),
       thGrade:    hasPrac ? thGrade : (m.grade || thGrade),
-      inCH:       hasPrac ? creditHour : null,
+      inCH:       hasPrac ? inCreditHour : null,
       inGP:       hasPrac ? inGP : null,
       inGrade:    hasPrac ? inGrade : null,
       finalGrade: m.grade || '—',
@@ -109,6 +122,7 @@ const getGradePointLocal = (pct = 0) => {
   const v = Number(pct || 0);
   if (v >= 90) return 4.0; if (v >= 80) return 3.6; if (v >= 70) return 3.2;
   if (v >= 60) return 2.8; if (v >= 50) return 2.4; if (v >= 40) return 2.0;
+  if (v >= 35) return 1.6;
   return 0.0;
 };
 const getGradeLocal = (pct = 0) => {
@@ -692,7 +706,7 @@ const Marksheets = () => {
 
   // Derived filter options
   const classOptions   = [...new Set(marksheets.map((m) => m.student?.className).filter(Boolean))]
-    .sort(classNameSort.compare);
+    .sort(compareClassNames);
   const sectionOptions = [...new Set(
     marksheets
       .filter((m) => !filterClass || m.student?.className === filterClass)
