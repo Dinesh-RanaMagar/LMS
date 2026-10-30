@@ -7,8 +7,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "seed:classes": "node seedClasses.js",
-    "lint": "eslint .",
-    "test": "node --test"
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "",

@@ -11,17 +11,23 @@ export const getGradePoint = (percentage = 0) => {
   return 0.0;
 };
 
-export const getGrade = (percentage = 0) => {
-  const value = Number(percentage || 0);
+// EMIS letter grades are read off a grade point by rounding UP to the next band,
+// so a 2.6 grade point is reported as B and a 2.44 GPA as B.
+const GRADE_POINT_BANDS = [
+  { point: 1.6, grade: "D" },
+  { point: 2.0, grade: "C" },
+  { point: 2.4, grade: "C+" },
+  { point: 2.8, grade: "B" },
+  { point: 3.2, grade: "B+" },
+  { point: 3.6, grade: "A" },
+  { point: 4.0, grade: "A+" },
+];
 
-  if (value >= 90) return "A+";
-  if (value >= 80) return "A";
-  if (value >= 70) return "B+";
-  if (value >= 60) return "B";
-  if (value >= 50) return "C+";
-  if (value >= 40) return "C";
-  if (value >= 35) return "D";
-  return "NG";
+export const getGradeFromGradePoint = (gradePoint = 0) => {
+  const value = Number(gradePoint || 0);
+  if (value < GRADE_POINT_BANDS[0].point) return "NG";
+  const band = GRADE_POINT_BANDS.find((item) => value <= item.point);
+  return band ? band.grade : "A+";
 };
 
 // Theory and practical each carry their own credit hour. A subject's grade point
@@ -42,7 +48,6 @@ export const calculateCreditHourGPA = (marks = []) => {
     const creditHour = Number(mark.creditHour || 0);
     const obtainedMarks = theory + practical;
     const percentage = fullMarks ? (obtainedMarks / fullMarks) * 100 : 0;
-    const grade = getGrade(percentage);
     const gradePoint = getGradePoint(percentage);
     const hasPractical = Boolean(mark.hasPractical);
     const theoryPassMarks = Number(mark.theoryPassMarks || 0);
@@ -60,6 +65,14 @@ export const calculateCreditHourGPA = (marks = []) => {
     const weightedGradePoints = hasPractical
       ? theoryGradePoint * creditHour + practicalGradePoint * practicalCreditHour
       : gradePoint * creditHour;
+
+    // EMIS reports a subject's grade point (G.P) as the credit-hour weighted
+    // average of its theory and practical grade points, and the letter grade (O.G)
+    // as that grade point rounded up to the next band. A failed subject is
+    // non-graded (NG) and therefore carries no grade point.
+    const subjectGradePoint = subjectCreditHour > 0
+      ? Number((weightedGradePoints / subjectCreditHour).toFixed(2))
+      : gradePoint;
 
     const result = hasPractical
       ? theory >= theoryPassMarks && practical >= practicalPassMarks ? "Pass" : "Fail"
@@ -92,18 +105,22 @@ export const calculateCreditHourGPA = (marks = []) => {
       practicalCreditHour,
       obtainedMarks,
       percentage,
-      grade: result === "Fail" ? "NG" : grade,
-      gradePoint,
+      grade: result === "Fail" ? "NG" : getGradeFromGradePoint(subjectGradePoint),
+      gradePoint: result === "Fail" ? 0 : subjectGradePoint,
       result,
     };
   });
 
   const percentage = totalFullMarks ? (totalMarks / totalFullMarks) * 100 : 0;
+  // A student with any non-graded (NG) subject is non-graded overall, so the final
+  // GPA is reported as 0 rather than a partial-credit average.
   // If no credit hours are assigned, derive GPA from overall percentage instead of returning 0
-  const gpa = totalCreditHour
-    ? Number((totalWeightedGradePoints / totalCreditHour).toFixed(2))
-    : Number(getGradePoint(percentage).toFixed(2));
-  const grade = hasFailedSubject ? "NG" : getGrade(percentage);
+  const gpa = hasFailedSubject
+    ? 0
+    : totalCreditHour
+      ? Number((totalWeightedGradePoints / totalCreditHour).toFixed(2))
+      : Number(getGradePoint(percentage).toFixed(2));
+  const grade = hasFailedSubject ? "NG" : getGradeFromGradePoint(gpa);
   const result = hasFailedSubject ? "Fail" : "Pass";
 
   return {

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Download, FileSpreadsheet, Printer, RefreshCw } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, ArrowUpDown, Download, FileSpreadsheet, Printer, RefreshCw } from 'lucide-react';
 import Layout from '../components/Layout';
 import { classAPI, examAPI, marksheetAPI, settingsAPI } from '../services/api';
 import { formatDecimal } from '../utils/numberFormat';
@@ -35,12 +35,67 @@ const xmlCell = (value, styleId, mergeAcross = 0) => {
 };
 
 const displayFormats = [
+  { value: 'emis', label: 'EMIS (TH / PR / G.P / O.G)' },
   { value: 'raw', label: 'Raw Marks' },
   { value: 'percentage', label: 'Percentage' },
   { value: 'gpa', label: 'GPA' },
   { value: 'grade', label: 'Grade' },
   { value: 'result', label: 'Pass / Fail' },
 ];
+
+// Local mirrors of the server grade helpers (Server/utils/calculateGPA.js).
+const getGradePointLocal = (percentage = 0) => {
+  const value = Number(percentage || 0);
+  if (value >= 90) return 4.0;
+  if (value >= 80) return 3.6;
+  if (value >= 70) return 3.2;
+  if (value >= 60) return 2.8;
+  if (value >= 50) return 2.4;
+  if (value >= 40) return 2.0;
+  if (value >= 35) return 1.6;
+  return 0.0;
+};
+
+const getGradeLocal = (percentage = 0) => {
+  const value = Number(percentage || 0);
+  if (value >= 90) return 'A+';
+  if (value >= 80) return 'A';
+  if (value >= 70) return 'B+';
+  if (value >= 60) return 'B';
+  if (value >= 50) return 'C+';
+  if (value >= 40) return 'C';
+  if (value >= 35) return 'D';
+  return 'NG';
+};
+
+// EMIS reads the letter grade off a grade point by rounding UP to the next band,
+// so a 2.44 GPA is reported as B.
+const GRADE_POINT_BANDS = [
+  { point: 1.6, grade: 'D' },
+  { point: 2.0, grade: 'C' },
+  { point: 2.4, grade: 'C+' },
+  { point: 2.8, grade: 'B' },
+  { point: 3.2, grade: 'B+' },
+  { point: 3.6, grade: 'A' },
+  { point: 4.0, grade: 'A+' },
+];
+
+const getGradeFromGradePointLocal = (gradePoint = 0) => {
+  const value = Number(gradePoint || 0);
+  if (value < GRADE_POINT_BANDS[0].point) return 'NG';
+  const band = GRADE_POINT_BANDS.find((item) => value <= item.point);
+  return band ? band.grade : 'A+';
+};
+
+const formatGradePoint = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '-';
+  return number.toFixed(2).replace(/\.?0+$/, '');
+};
+
+const emisColumns = ['TH', 'PR', 'G.P', 'O.G'];
+
+const SUBJECT_ORDER_KEY = 'tabulation:subjectOrder';
 
 const getSubjectConfig = (exam, className) =>
   exam?.classExamConfigs?.find((config) => config.className === className)?.subjects || [];
@@ -60,42 +115,54 @@ const getFailedSubjectCount = (marksheet, subjectConfigs) =>
     return count + Number(failed);
   }, 0);
 
-const getSubjectFormatValues = (marksheet, subject, format) => {
+const getSubjectFormatValues = (marksheet, subject, format, withPractical = true) => {
   const mark = getSubjectMark(marksheet, subject.subjectName);
-  if (!mark) return format === 'raw' ? ['-', '-', '-'] : ['-'];
+  if (!mark) return format === 'raw' ? ['-', '-', '-'] : format === 'emis' ? ['-', '-', '-', '-'] : ['-'];
 
   const obtained = Number(mark.obtainedMarks ?? (Number(mark.theory || 0) + Number(mark.practical || 0)));
   if (format === 'raw') return [mark.theory ?? 0, mark.practical ?? 0, obtained];
 
+  const hasPractical = Boolean(mark.hasPractical ?? subject.hasPractical);
   const fullMarks = Number(subject.fullMarks ?? mark.fullMarks ?? 0);
   const percentage = fullMarks ? (obtained / fullMarks) * 100 : 0;
-  if (format === 'percentage') return [`${formatDecimal(percentage)}%`];
-  if (format === 'gpa') {
-    const gradePoint = mark.gradePoint ?? (
-      percentage >= 90 ? 4
-        : percentage >= 80 ? 3.6
-          : percentage >= 70 ? 3.2
-            : percentage >= 60 ? 2.8
-              : percentage >= 50 ? 2.4
-                : percentage >= 40 ? 2
-                  : 0
-    );
-    return [formatDecimal(gradePoint)];
-  }
-  if (format === 'grade') {
-    const grade = mark.grade || (
-      percentage >= 90 ? 'A+'
-        : percentage >= 80 ? 'A'
-          : percentage >= 70 ? 'B+'
-            : percentage >= 60 ? 'B'
-              : percentage >= 50 ? 'C'
-                : percentage >= 40 ? 'D'
-                  : 'F'
-    );
-    return [grade];
+
+  // EMIS layout: theory grade, practical grade, credit-hour weighted grade point
+  // (G.P) and the overall subject grade (O.G). With practical switched off the
+  // grade point and grade are read from the theory component alone.
+  if (format === 'emis') {
+    const theoryFullMarks = Number(mark.theoryFullMarks ?? subject.theoryFullMarks ?? 0) || (hasPractical ? 0 : fullMarks);
+    const practicalFullMarks = Number(mark.practicalFullMarks ?? subject.practicalFullMarks ?? 0);
+    const theoryPercentage = theoryFullMarks ? (Number(mark.theory || 0) / theoryFullMarks) * 100 : 0;
+    const theoryGrade = theoryFullMarks ? getGradeLocal(theoryPercentage) : '-';
+    const practicalGrade = hasPractical && practicalFullMarks
+      ? getGradeLocal((Number(mark.practical || 0) / practicalFullMarks) * 100)
+      : '-';
+    const theoryPassMarks = Number(mark.theoryPassMarks ?? subject.theoryPassMarks ?? 0);
+    const practicalPassMarks = Number(mark.practicalPassMarks ?? subject.practicalPassMarks ?? 0);
+    const passMarks = Number(mark.passMarks ?? subject.passMarks ?? 0);
+    const failed = typeof mark.result === 'string'
+      ? mark.result === 'Fail'
+      : hasPractical
+        ? Number(mark.theory || 0) < theoryPassMarks || Number(mark.practical || 0) < practicalPassMarks
+        : obtained < passMarks;
+
+    const rawGradePoint = withPractical
+      ? Number(mark.gradePoint ?? getGradePointLocal(percentage))
+      : getGradePointLocal(theoryPercentage);
+    // A failed subject is non-graded (NG) and carries no grade point in either mode.
+    const gradePoint = failed ? 0 : rawGradePoint;
+    const overallGrade = failed
+      ? 'NG'
+      : withPractical
+        ? mark.grade || getGradeFromGradePointLocal(gradePoint)
+        : getGradeFromGradePointLocal(gradePoint);
+    return [theoryGrade, practicalGrade, formatGradePoint(gradePoint), overallGrade];
   }
 
-  const hasPractical = Boolean(mark.hasPractical || subject.hasPractical);
+  if (format === 'percentage') return [`${formatDecimal(percentage)}%`];
+  if (format === 'gpa') return [formatDecimal(mark.gradePoint ?? getGradePointLocal(percentage))];
+  if (format === 'grade') return [mark.grade || getGradeLocal(percentage)];
+
   const passed = hasPractical
     ? Number(mark.theory || 0) >= Number(subject.theoryPassMarks ?? mark.theoryPassMarks ?? 0)
       && Number(mark.practical || 0) >= Number(subject.practicalPassMarks ?? mark.practicalPassMarks ?? 0)
@@ -114,12 +181,26 @@ const TabulationReport = () => {
   const [className, setClassName] = useState('');
   const [section, setSection] = useState('');
   const [examId, setExamId] = useState('');
-  const [displayFormat, setDisplayFormat] = useState('raw');
+  const [displayFormat, setDisplayFormat] = useState('emis');
   const [includeUnpublished, setIncludeUnpublished] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [loadingMarks, setLoadingMarks] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [subjectOrder, setSubjectOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SUBJECT_ORDER_KEY) || '[]');
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isArranging, setIsArranging] = useState(false);
+  const [emisWithPractical, setEmisWithPractical] = useState(true);
+  const [tableWidth, setTableWidth] = useState(0);
+  const tableScrollRef = useRef(null);
+  const tableRef = useRef(null);
+  const topScrollRef = useRef(null);
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -153,7 +234,34 @@ const TabulationReport = () => {
     .sort((first, second) => collator.compare(first.examName || '', second.examName || ''));
   const selectedExam = availableExams.find((exam) => exam._id === examId);
   const subjectConfigs = getSubjectConfig(selectedExam, className);
-  const sortedSubjectConfigs = subjectConfigs;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SUBJECT_ORDER_KEY, JSON.stringify(subjectOrder));
+    } catch {
+      // Storage unavailable — the custom order just won't persist.
+    }
+  }, [subjectOrder]);
+
+  // Subjects follow the saved custom order; anything new is appended at the end.
+  const orderedNames = new Set(subjectOrder);
+  const sortedSubjectConfigs = [
+    ...subjectOrder
+      .map((name) => subjectConfigs.find((subject) => subject.subjectName === name))
+      .filter(Boolean),
+    ...subjectConfigs.filter((subject) => !orderedNames.has(subject.subjectName)),
+  ];
+
+  const moveSubject = (index, direction) => {
+    const names = sortedSubjectConfigs.map((subject) => subject.subjectName);
+    const target = index + direction;
+    if (target < 0 || target >= names.length) return;
+    const next = [...names];
+    [next[index], next[target]] = [next[target], next[index]];
+    setSubjectOrder(next);
+  };
+
+  const resetSubjectOrder = () => setSubjectOrder([]);
 
   useEffect(() => {
     let active = true;
@@ -222,12 +330,41 @@ const TabulationReport = () => {
     passed: reportRows.filter(({ marksheet }) => marksheet.result === 'Pass').length,
     failed: reportRows.filter(({ marksheet }) => marksheet.result !== 'Pass').length,
   };
+  const hasSubHeader = displayFormat === 'raw' || displayFormat === 'emis';
+  const subjectColSpan = displayFormat === 'raw' ? 3 : displayFormat === 'emis' ? 4 : 1;
+
+  // The grid scrolls horizontally inside a 70vh box, so its real scrollbar sits at the
+  // bottom of the last student row. Mirroring the table's scroll width into a slim bar
+  // pinned above the header lets the table be panned without scrolling to the end first.
+  useEffect(() => {
+    const table = tableRef.current;
+    if (!table) return undefined;
+    const measure = () => setTableWidth(table.scrollWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(table);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [displayFormat, reportRows.length]);
+
+  const syncTopScroll = (event) => {
+    if (tableScrollRef.current) tableScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+  };
+
+  const syncTableScroll = (event) => {
+    if (topScrollRef.current) topScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+  };
 
   const getExportData = () => {
     const headers = ['R.N.', 'Student Name', 'Admission No.'];
     sortedSubjectConfigs.forEach((subject) => {
       if (displayFormat === 'raw') {
         headers.push(`${subject.subjectName} TH`, `${subject.subjectName} INT`, `${subject.subjectName} Total`);
+      } else if (displayFormat === 'emis') {
+        emisColumns.forEach((column) => headers.push(`${subject.subjectName} ${column}`));
       } else {
         headers.push(`${subject.subjectName} ${displayFormats.find((format) => format.value === displayFormat)?.label || ''}`);
       }
@@ -237,7 +374,7 @@ const TabulationReport = () => {
     const rows = reportRows.map(({ marksheet, classRank, sectionRank, failedSubjects }) => {
       const values = [getRollNumber(marksheet), marksheet.student?.name, getAdmissionNumber(marksheet.student)];
       sortedSubjectConfigs.forEach((subject) => {
-        values.push(...getSubjectFormatValues(marksheet, subject, displayFormat));
+        values.push(...getSubjectFormatValues(marksheet, subject, displayFormat, emisWithPractical));
       });
       values.push(
         marksheet.totalMarks,
@@ -400,16 +537,23 @@ const TabulationReport = () => {
       setError('The print window was blocked. Allow pop-ups and try again.');
       return;
     }
+    const printHasSubHeader = displayFormat === 'raw' || displayFormat === 'emis';
+    const printSubjectColSpan = displayFormat === 'raw' ? 3 : displayFormat === 'emis' ? 4 : 1;
+    const subjectLabel = printHasSubHeader
+      ? ''
+      : ` ${displayFormats.find((format) => format.value === displayFormat)?.label || ''}`;
     const printHeader = `<tr>
       <th rowspan="2">R.N.</th><th rowspan="2">Student Name</th><th rowspan="2">Admission No.</th>
-      ${sortedSubjectConfigs.map((subject) => `<th colspan="${displayFormat === 'raw' ? 3 : 1}"${displayFormat === 'raw' ? '' : ' rowspan="2"'}>${escapeHtml(subject.subjectName)}${displayFormat === 'raw' ? '' : ` ${escapeHtml(displayFormats.find((format) => format.value === displayFormat)?.label || '')}`}</th>`).join('')}
+      ${sortedSubjectConfigs.map((subject) => `<th colspan="${printSubjectColSpan}"${printHasSubHeader ? '' : ' rowspan="2"'}>${escapeHtml(subject.subjectName)}${escapeHtml(subjectLabel)}</th>`).join('')}
       <th rowspan="2">Total</th><th rowspan="2">%</th><th rowspan="2">Rank in Class</th><th rowspan="2">Rank in Section</th>
       <th rowspan="2">Failed</th><th rowspan="2">Grade</th><th rowspan="2">GPA</th><th rowspan="2">Result</th>
-    </tr>${displayFormat === 'raw' ? `<tr>${sortedSubjectConfigs.map(() => '<th>TH</th><th>INT</th><th>Total</th>').join('')}</tr>` : ''}`;
+    </tr>${printHasSubHeader ? `<tr>${sortedSubjectConfigs.map(() => (
+      displayFormat === 'raw' ? '<th>TH</th><th>INT</th><th>Total</th>' : emisColumns.map((column) => `<th>${column}</th>`).join('')
+    )).join('')}</tr>` : ''}`;
     const rows = reportRows.map(({ marksheet, classRank, sectionRank, failedSubjects }) => {
       const cells = [getRollNumber(marksheet), marksheet.student?.name, getAdmissionNumber(marksheet.student)];
       sortedSubjectConfigs.forEach((subject) => {
-        cells.push(...getSubjectFormatValues(marksheet, subject, displayFormat));
+        cells.push(...getSubjectFormatValues(marksheet, subject, displayFormat, emisWithPractical));
       });
       cells.push(
         `${marksheet.totalMarks ?? 0}/${marksheet.totalFullMarks ?? 0}`,
@@ -533,43 +677,120 @@ const TabulationReport = () => {
               <div className="py-16 text-center text-slate-500"><FileSpreadsheet size={38} className="mx-auto mb-3 text-slate-300" /><p>No tabulation data found for this class, exam, and section.</p><p className="mt-1 text-xs text-slate-400">{includeUnpublished ? 'Check that marks have been entered for this class and exam.' : 'If marks have been entered but results are unpublished, enable “Include unpublished marks”.'}</p></div>
             ) : (
               <>
-                <div className="flex flex-wrap gap-x-6 gap-y-2 border-b border-slate-100 px-5 py-3 text-sm">
-                  <span><strong>{summary.total}</strong> students</span>
-                  <span className="text-emerald-700"><strong>{summary.passed}</strong> passed</span>
-                  <span className="text-red-700"><strong>{summary.failed}</strong> failed</span>
+                <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-slate-100 px-5 py-3 text-sm">
+                  <div className="flex flex-wrap gap-x-6 gap-y-2">
+                    <span><strong>{summary.total}</strong> students</span>
+                    <span className="text-emerald-700"><strong>{summary.passed}</strong> passed</span>
+                    <span className="text-red-700"><strong>{summary.failed}</strong> failed</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {displayFormat === 'emis' && (
+                      <button
+                        type="button"
+                        onClick={() => setEmisWithPractical((value) => !value)}
+                        title="Read G.P and O.G from theory plus practical, or from theory alone"
+                        className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                          emisWithPractical
+                            ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            : 'border-amber-500 bg-amber-500 text-white hover:bg-amber-600'
+                        }`}
+                      >
+                        G.P / O.G: {emisWithPractical ? 'With practical' : 'Without practical'}
+                      </button>
+                    )}
+                    {isArranging && (
+                      <button
+                        type="button"
+                        onClick={resetSubjectOrder}
+                        title="Reset to the default subject order"
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                      >
+                        Reset
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsArranging((value) => !value)}
+                      title="Reorder the subject columns"
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                        isArranging
+                          ? 'border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ArrowUpDown size={13} />
+                      {isArranging ? 'Done' : 'Arrange'}
+                    </button>
+                  </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse text-sm">
-                    <thead className="bg-slate-100 text-slate-700">
+                <div
+                  ref={topScrollRef}
+                  onScroll={syncTopScroll}
+                  aria-hidden="true"
+                  className="overflow-x-auto overflow-y-hidden"
+                >
+                  <div style={{ width: `${tableWidth}px`, height: '1px' }} />
+                </div>
+                <div ref={tableScrollRef} onScroll={syncTableScroll} className="max-h-[70vh] overflow-auto overscroll-contain">
+                  <table ref={tableRef} className="min-w-full border-collapse text-sm">
+                    <thead className="sticky top-0 z-20 bg-slate-100 text-slate-700 [&_th]:bg-slate-100">
                       <tr>
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">R.N.</th>
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-left text-sm font-bold">Name</th>
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Admission No.</th>
-                        {sortedSubjectConfigs.map((subject) => (
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">R.N.</th>
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-left text-sm font-bold">Name</th>
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Admission No.</th>
+                        {sortedSubjectConfigs.map((subject, index) => (
                           <th
                             key={subject.subjectName}
-                            colSpan={displayFormat === 'raw' ? 3 : 1}
-                            rowSpan={displayFormat === 'raw' ? 1 : 2}
+                            colSpan={subjectColSpan}
+                            rowSpan={hasSubHeader ? 1 : 2}
                             className="border border-slate-200 px-3 py-2 text-sm font-bold"
                           >
-                            {subject.subjectName}
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span>{subject.subjectName}</span>
+                              {isArranging && (
+                                <span className="flex flex-shrink-0 items-center gap-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => moveSubject(index, -1)}
+                                    disabled={index === 0}
+                                    title="Move subject left"
+                                    className="flex h-5 w-5 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30"
+                                  >
+                                    <ArrowLeft size={12} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => moveSubject(index, 1)}
+                                    disabled={index === sortedSubjectConfigs.length - 1}
+                                    title="Move subject right"
+                                    className="flex h-5 w-5 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30"
+                                  >
+                                    <ArrowRight size={12} />
+                                  </button>
+                                </span>
+                              )}
+                            </div>
                           </th>
                         ))}
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Total</th>
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">%</th>
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Rank in Class</th>
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Rank in Section</th>
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Failed</th>
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Grade</th>
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">GPA</th>
-                        <th rowSpan={displayFormat === 'raw' ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Result</th>
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Total</th>
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">%</th>
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Rank in Class</th>
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Rank in Section</th>
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Failed</th>
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Grade</th>
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">GPA</th>
+                        <th rowSpan={hasSubHeader ? 2 : 1} className="border border-slate-200 px-3 py-2 text-sm font-bold">Result</th>
                       </tr>
-                      {displayFormat === 'raw' && (
-                        <tr>{sortedSubjectConfigs.flatMap((subject) => [
-                          <th key={`${subject.subjectName}-th`} className="border border-slate-200 px-2 py-1.5 text-xs font-bold">TH</th>,
-                          <th key={`${subject.subjectName}-pr`} className="border border-slate-200 px-2 py-1.5 text-xs font-bold">INT</th>,
-                          <th key={`${subject.subjectName}-total`} className="border border-slate-200 px-2 py-1.5 text-xs font-bold">Total</th>,
-                        ])}</tr>
+                      {hasSubHeader && (
+                        <tr>{sortedSubjectConfigs.flatMap((subject) => (
+                          displayFormat === 'raw'
+                            ? ['TH', 'INT', 'Total'].map((label) => (
+                              <th key={`${subject.subjectName}-${label}`} className="border border-slate-200 px-2 py-1.5 text-xs font-bold">{label}</th>
+                            ))
+                            : emisColumns.map((label) => (
+                              <th key={`${subject.subjectName}-${label}`} className="border border-slate-200 px-2 py-1.5 text-xs font-bold">{label}</th>
+                            ))
+                        ))}</tr>
                       )}
                     </thead>
                     <tbody>
@@ -579,7 +800,7 @@ const TabulationReport = () => {
                           <td className="border border-slate-100 px-3 py-2.5 font-medium">{marksheet.student?.name || '-'}</td>
                           <td className="border border-slate-100 px-3 py-2.5 text-center tabular-nums">{getAdmissionNumber(marksheet.student) || '-'}</td>
                           {sortedSubjectConfigs.flatMap((subject) =>
-                            getSubjectFormatValues(marksheet, subject, displayFormat).map((value, valueIndex) => (
+                            getSubjectFormatValues(marksheet, subject, displayFormat, emisWithPractical).map((value, valueIndex) => (
                               <td key={`${subject.subjectName}-${displayFormat}-${valueIndex}`} className="border border-slate-100 px-2 py-2.5 text-center tabular-nums">
                                 {value}
                               </td>

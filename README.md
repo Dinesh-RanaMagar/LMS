@@ -55,7 +55,6 @@ LMS/
     ├── Middleware/       # Authentication
     ├── model/            # MongoDB schemas and indexes
     ├── route/            # Express API routes
-    ├── test/             # Unit and import tests
     ├── utils/            # Import, grading, and migration helpers
     ├── app.js
     ├── index.js
